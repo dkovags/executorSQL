@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Painel do Professor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root {
+  --bg: #F3F5F9; --card: #FFFFFF; --fg: #1B2432; --muted: #5A6472; --line: #D8DEE8;
+  --navy: #0F2B5B; --navy-fg: #FFFFFF; --ouro: #F2A900; --link: #0F2B5B;
+  --ok: #1F6B3B; --ok-bg: #EAF4ED; --err: #A8271E; --err-bg: #FBEDEC; --code-bg: #F7F9FC; --hover: #EEF2F8;
+  --sans: Calibri, Carlito, "Segoe UI", system-ui, sans-serif;
+  --serif: Cambria, Caladea, Georgia, serif;
+  --mono: Consolas, "Cascadia Mono", "DejaVu Sans Mono", "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1420; --card: #161E2E; --fg: #E6EAF2; --muted: #9AA6B8; --line: #2A3549;
+    --navy: #8FB0F0; --navy-fg: #0E1420; --ouro: #F2B83A; --link: #9DBBF5;
+    --ok: #6FCB93; --ok-bg: #16301F; --err: #FF9A90; --err-bg: #3A1B19; --code-bg: #111827; --hover: #1E2A40;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1420; --card: #161E2E; --fg: #E6EAF2; --muted: #9AA6B8; --line: #2A3549;
+  --navy: #8FB0F0; --navy-fg: #0E1420; --ouro: #F2B83A; --link: #9DBBF5;
+  --ok: #6FCB93; --ok-bg: #16301F; --err: #FF9A90; --err-bg: #3A1B19; --code-bg: #111827; --hover: #1E2A40;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.45 var(--sans); }
+button, input { font: inherit; color: inherit; }
+code, pre { font-family: var(--mono); }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.topo { background: var(--card); border-bottom: 3px solid var(--ouro); }
+.topo-in { max-width: 1240px; margin: 0 auto; padding-block: 16px 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; }
+h1 { margin: 0; font: 700 28px/1.15 var(--serif); color: var(--navy); text-wrap: balance; }
+.sub { margin: 2px 0 0; color: var(--muted); font-size: 14.5px; }
+.barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border-radius: 999px; background: var(--hover); color: var(--muted); font-size: 14px; }
+.chip.ok { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+.chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .75; }
+button.btn { height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); color: var(--navy); font-weight: 700; cursor: pointer; }
+button.btn:hover { background: var(--hover); }
+button.btn:disabled { opacity: .55; cursor: wait; }
+label.auto { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; }
+:focus-visible { outline: 3px solid var(--ouro); outline-offset: 2px; }
+
+main { max-width: 1240px; margin: 0 auto; padding-block: 18px 48px; display: grid; gap: 18px; }
+.aviso { margin: 0; padding: 12px 14px; border-radius: 6px; background: var(--err-bg); color: var(--err); }
+.aviso.info { background: var(--hover); color: var(--muted); }
+.aviso b { color: inherit; }
+
+.grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.card-dupla { text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; cursor: pointer; display: grid; gap: 4px; align-content: start; min-width: 0; }
+.card-dupla:hover { background: var(--hover); }
+.card-dupla[aria-pressed="true"] { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
+.card-dupla h3 { margin: 0; font: 700 17px/1.2 var(--serif); color: var(--navy); }
+.card-dupla .linha { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--muted); }
+.card-dupla .linha b { color: var(--fg); font-variant-numeric: tabular-nums; }
+.card-dupla .linha b.erro { color: var(--err); }
+.card-dupla .quando { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.card-todas h3 { font-size: 17px; }
+
+.painel { background: var(--card); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+.painel-cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.abas { display: flex; flex-wrap: wrap; gap: 4px; }
+.aba { height: 34px; padding: 0 14px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-weight: 700; cursor: pointer; }
+.aba:hover { background: var(--hover); }
+.aba[aria-selected="true"] { background: var(--navy); color: var(--navy-fg); }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 14px; color: var(--muted); }
+.filtros input[type=search] { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); min-width: 0; width: 200px; max-width: 100%; }
+.corpo { padding: 6px 0 4px; min-width: 0; }
+.vazio { margin: 0; padding: 18px 16px; color: var(--muted); }
+
+.cmd { padding: 10px 16px; border-top: 1px solid var(--line); min-width: 0; }
+.cmd:first-child { border-top: 0; }
+.cmd-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tag { padding: 0 8px; border-radius: 3px; font-size: 12.5px; font-weight: 700; background: var(--hover); color: var(--navy); }
+.tag.ok { background: var(--ok-bg); color: var(--ok); }
+.tag.erro { background: var(--err-bg); color: var(--err); }
+.cmd pre { margin: 5px 0 0; padding: 8px 10px; background: var(--code-bg); border-radius: 4px; white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.45; }
+.cmd .msg-erro { margin: 5px 0 0; color: var(--err); font-family: var(--mono); font-size: 13.5px; }
+
+.tab-bloco { padding: 12px 16px 16px; border-top: 1px solid var(--line); min-width: 0; }
+.tab-bloco:first-child { border-top: 0; }
+.tab-bloco h3 { margin: 0 0 2px; font: 700 18px/1.3 var(--mono); color: var(--navy); }
+.tab-bloco .meta { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.cols { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
+.cols li { padding: 2px 9px; border: 1px solid var(--line); border-radius: 4px; font-family: var(--mono); font-size: 13px; }
+.cols li .t { color: var(--muted); }
+.cols li .pk { margin-left: 5px; padding: 0 5px; border-radius: 3px; background: var(--ouro); color: #3A2A00; font: 700 11px/1.5 var(--sans); }
+.rolagem { overflow-x: auto; max-width: 100%; }
+table { border-collapse: collapse; font-family: var(--mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+th { background: var(--navy); color: var(--navy-fg); text-align: left; padding: 5px 12px; white-space: nowrap; }
+td { padding: 4px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td.nulo { color: var(--muted); font-style: italic; }
+tr:nth-child(even) td { background: var(--code-bg); }
+
+.entrar { padding: 18px 16px 20px; display: grid; gap: 10px; justify-items: start; }
+.entrar h2 { margin: 0; font: 700 20px/1.2 var(--serif); color: var(--navy); }
+@media (max-width: 520px) { h1 { font-size: 24px; } .filtros input[type=search] { width: 100%; } }
+</style>
+</head>
+<body>
+
+
+<header class="topo gutter">
+  <div class="topo-in">
+    <div>
+      <h1>Painel do Professor</h1>
+      <p class="sub">Tabelas e comandos de cada dupla, direto do banco da turma.</p>
+    </div>
+    <div class="barra">
+      <span id="quem" class="chip">Sem identificação</span>
+      <label class="auto"><input id="auto" type="checkbox" checked> Atualizar sozinho a cada 15 s</label>
+      <button id="atualizar" class="btn" type="button">Atualizar agora</button>
+      <button id="sair" class="btn" type="button" hidden>Sair</button>
+    </div>
+  </div>
+</header>
+
+<main class="gutter">
+  <section id="login" class="painel entrar" aria-labelledby="titulo-login">
+    <h2 id="titulo-login">Entrar</h2>
+    <p class="sub">Use a conta Google do professor. Os dados só são liberados para ela.</p>
+    <div id="g-botao"></div>
+    <p id="login-msg" class="sub" hidden></p>
+  </section>
+  <p id="aviso" class="aviso info" hidden></p>
+  <p id="atualizado" class="sub" hidden></p>
+  <section id="grade" class="grade" aria-label="Duplas" hidden></section>
+  <section id="detalhe" class="painel" hidden>
+    <div class="painel-cab">
+      <div class="abas" role="tablist" id="abas"></div>
+      <div class="filtros" id="filtros">
+        <label><input id="so-erros" type="checkbox"> só erros</label>
+        <input id="busca" type="search" placeholder="Buscar no comando" aria-label="Buscar no comando">
+      </div>
+    </div>
+    <div id="corpo" class="corpo"></div>
+  </section>
+</main>
+
+<script>
+// Login pelo Google (Google Identity Services) e acesso aos dados pela Data API do Neon.
+// O token do Google vai no cabeçalho Authorization; o Neon confere a assinatura com as chaves públicas do
+// Google e o Client ID abaixo, e a função painel_api.painel só responde ao e-mail do professor.
+const GOOGLE_CLIENT_ID = '377714746724-57pabm6cvgvtijcsn7vm6u03ppjisbm5.apps.googleusercontent.com';
+const DATA_API = 'https://ep-shy-violet-b6f4h26u.apirest.c-2.sa-east-1.aws.neon.tech/escola/rest/v1';
+let tokenGoogle = null;
+let liberar;
+let loginPronto = new Promise((r) => { liberar = r; });
+
+function declaracoes(t) {
+  try { return JSON.parse(decodeURIComponent(escape(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))))); }
+  catch (e) { return null; }
+}
+const tokenVale = (t) => { const c = t && declaracoes(t); return Boolean(c && c.exp * 1000 > Date.now() + 60000); };
+
+function mostrarLogin(msg) {
+  const caixa = document.getElementById('login');
+  if (caixa) caixa.hidden = false;
+  const m = document.getElementById('login-msg');
+  if (m) { m.textContent = msg || ''; m.hidden = !msg; }
+  if (window.google && google.accounts) google.accounts.id.prompt();
+}
+
+function aoEntrar(resposta) {
+  tokenGoogle = resposta.credential;
+  try { sessionStorage.setItem('painel_token', tokenGoogle); } catch (e) { /* aba privada */ }
+  document.getElementById('login').hidden = true;
+  liberar();
+  if (window.__iniciado && typeof carregar === 'function') carregar().then(agendar);
+}
+
+try { const t = sessionStorage.getItem('painel_token'); if (tokenVale(t)) tokenGoogle = t; } catch (e) { /* sem armazenamento */ }
+
+window.onGoogleLibraryLoad = () => {
+  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: aoEntrar, auto_select: true, cancel_on_tap_outside: false });
+  google.accounts.id.renderButton(document.getElementById('g-botao'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR' });
+  if (!tokenGoogle) google.accounts.id.prompt();
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (tokenGoogle) { document.getElementById('login').hidden = true; liberar(); }
+  document.getElementById('sair').addEventListener('click', () => {
+    try { sessionStorage.removeItem('painel_token'); } catch (e) { /* nada */ }
+    if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
+    location.reload();
+  });
+});
+
+window.claude = {
+  use: async (nome) => {
+    await loginPronto;
+    if (nome === 'user') {
+      const c = declaracoes(tokenGoogle) || {};
+      return { me: async () => ({ email: c.email || null, name: c.name || '', isOwner: false }), isOwner: async () => false };
+    }
+    if (nome === 'mcp') {
+      return {
+        callTool: async (servidor, ferramenta, entrada) => {
+          if (!tokenVale(tokenGoogle)) {
+            mostrarLogin('A sessão do Google terminou. Entre de novo.');
+            loginPronto = new Promise((r) => { liberar = r; });
+            throw { code: 'needs_reauth', message: 'token expirado' };
+          }
+          let r;
+          try {
+            r = await fetch(`${DATA_API}/rpc/painel`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` },
+              body: JSON.stringify(entrada.dupla ? { p_dupla: entrada.dupla } : {}),
+            });
+          } catch (e) {
+            throw { code: 'upstream_error', message: 'sem conexão com o Neon' };
+          }
+          const corpo = await r.json().catch(() => null);
+          if (r.status === 401) {
+            mostrarLogin('O Neon recusou o login. Entre de novo.');
+            throw { code: 'needs_reauth', message: (corpo && corpo.message) || 'HTTP 401' };
+          }
+          if (!r.ok) {
+            const negado = corpo && (corpo.code === '42501' || /acesso negado/.test(corpo.message || ''));
+            throw { code: negado ? 'not_granted' : 'tool_error', message: (corpo && corpo.message) || `HTTP ${r.status}` };
+          }
+          return { payload: [{ dados: corpo }] };
+        },
+      };
+    }
+    return null;
+  },
+};
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+const PROJETO = 'ancient-glade-79142947';
+const BRANCH = 'br-rapid-sun-b65zteaa';
+const BANCO = 'escola';
+const EMAIL_PROFESSOR = 'kovags@gmail.com';
+const DUPLAS = ['dupla1', 'dupla2', 'dupla3', 'dupla4', 'dupla5', 'dupla6'];
+
+const $ = (id) => document.getElementById(id);
+const estado = { visao: 'todas', aba: 'comandos', dados: null, ocupado: false, mcp: null, soErros: false, busca: '', depois: false };
+let temporizador = null;
+
+function el(tag, classe, texto) {
+  const x = document.createElement(tag);
+  if (classe) x.className = classe;
+  if (texto !== undefined && texto !== null) x.textContent = texto;
+  return x;
+}
+const hora = (iso) => (iso ? new Date(iso).toLocaleTimeString('pt-BR') : '');
+function haQuanto(iso) {
+  if (!iso) return 'sem atividade';
+  const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (s < 60) return `há ${s} s`;
+  if (s < 3600) return `há ${Math.floor(s / 60)} min`;
+  return `às ${hora(iso)}`;
+}
+function aviso(texto, info) {
+  const a = $('aviso');
+  if (!texto) { a.hidden = true; return; }
+  a.className = info ? 'aviso info' : 'aviso';
+  a.textContent = texto;
+  a.hidden = false;
+}
+
+// ---------------------------------------------------------------- dados
+function textoDoErro(e) {
+  const c = e && e.code;
+  if (c === 'server_not_connected') return 'O conector Neon não está ligado à sua conta do Claude. Conecte-o em Configurações > Conectores e abra o painel de novo.';
+  if (c === 'needs_reauth') return 'A sessão do Google terminou. Entre de novo com o botão acima.';
+  if (c === 'not_granted') return 'Esta conta Google não tem acesso ao painel. Clique em Sair e entre com a conta do professor.';
+  const m = (e && e.message) || String(e);
+  if (/painel_dados|professor\.comandos/.test(m)) return 'O banco ainda não tem o registro de comandos. Rode banco/registro_de_comandos.sql e banco/painel_do_professor.sql no SQL Editor do Neon.';
+  return `Não consegui ler o banco: ${m}`;
+}
+
+async function carregar() {
+  if (estado.ocupado || !estado.mcp || !estado.permitido) return;
+  estado.ocupado = true;
+  $('atualizar').disabled = true;
+  const alvo = estado.visao === 'todas' ? 'NULL' : `'${estado.visao}'`;
+  try {
+    const r = await estado.mcp.callTool('Neon', 'run_sql', {
+      project_id: PROJETO, branch_id: BRANCH, database_name: BANCO,
+      sql: `SELECT professor.painel_dados(${alvo}, 300) AS dados`, dupla: estado.visao === 'todas' ? null : estado.visao,
+    }, { cache: false });
+    let p = r.payload;
+    if (typeof p === 'string') p = JSON.parse(p);
+    let dados = Array.isArray(p) ? p[0].dados : p.dados;
+    if (typeof dados === 'string') dados = JSON.parse(dados);
+    estado.dados = dados;
+    aviso('');
+    $('atualizado').textContent = `Atualizado às ${hora(dados.agora)}`;
+    $('atualizado').hidden = false;
+    desenhar();
+  } catch (e) {
+    aviso(textoDoErro(e));
+  } finally {
+    estado.ocupado = false;
+    $('atualizar').disabled = false;
+  }
+}
+
+function agendar() {
+  clearTimeout(temporizador);
+  if (!$('auto').checked) return;
+  temporizador = setTimeout(async () => {
+    if (!document.hidden) await carregar();
+    agendar();
+  }, 15000);
+}
+
+// ---------------------------------------------------------------- desenho
+function desenharGrade() {
+  const g = $('grade');
+  const resumo = estado.dados.resumo || [];
+  const total = resumo.reduce((a, d) => ({ c: a.c + d.comandos, e: a.e + d.erros }), { c: 0, e: 0 });
+  const cartoes = [];
+  const todas = el('button', 'card-dupla card-todas');
+  todas.type = 'button';
+  todas.setAttribute('aria-pressed', String(estado.visao === 'todas'));
+  todas.append(el('h3', '', 'Todas as duplas'));
+  const l1 = el('div', 'linha'); l1.append(el('span', '', 'comandos'), el('b', '', String(total.c)));
+  const l2 = el('div', 'linha'); l2.append(el('span', '', 'com erro'), el('b', total.e ? 'erro' : '', String(total.e)));
+  todas.append(l1, l2);
+  todas.addEventListener('click', () => escolher('todas'));
+  cartoes.push(todas);
+  resumo.forEach((d) => {
+    const b = el('button', 'card-dupla');
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(estado.visao === d.dupla));
+    b.append(el('h3', '', d.dupla.replace('dupla', 'Dupla ')));
+    const a = el('div', 'linha'); a.append(el('span', '', 'alunos'), el('b', '', String(d.alunos)));
+    const c = el('div', 'linha'); c.append(el('span', '', 'comandos'), el('b', '', String(d.comandos)));
+    const e = el('div', 'linha'); e.append(el('span', '', 'com erro'), el('b', d.erros ? 'erro' : '', String(d.erros)));
+    const t = el('div', 'linha'); t.append(el('span', '', 'tabelas'), el('b', '', String(d.tabelas)));
+    const ult = [d.ultimo_comando, d.ultima_operacao].filter(Boolean).sort().pop();
+    b.append(a, c, e, t, el('div', 'quando', `última atividade: ${haQuanto(ult)}`));
+    b.addEventListener('click', () => escolher(d.dupla));
+    cartoes.push(b);
+  });
+  g.replaceChildren(...cartoes);
+  g.hidden = false;
+}
+
+function desenharAbas() {
+  const abas = [['comandos', 'Comandos'], ['tabelas', 'Tabelas'], ['operacoes', 'Linhas gravadas em aluno']];
+  const caixa = $('abas');
+  caixa.replaceChildren(...abas.map(([id, nome]) => {
+    const b = el('button', 'aba', nome);
+    b.type = 'button';
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(estado.aba === id));
+    b.addEventListener('click', () => { estado.aba = id; desenhar(); });
+    return b;
+  }));
+  $('filtros').hidden = estado.aba !== 'comandos';
+}
+
+function desenharComandos(corpo) {
+  const termo = estado.busca.trim().toLowerCase();
+  const lista = (estado.dados.comandos || []).filter((c) => (!estado.soErros || !c.ok) && (!termo || c.comando.toLowerCase().includes(termo)));
+  if (!lista.length) {
+    corpo.append(el('p', 'vazio', estado.dados.comandos.length ? 'Nenhum comando com esse filtro.' : 'Nenhum comando registrado ainda. Eles aparecem aqui assim que as duplas executarem algo no Executor de SQL.'));
+    return;
+  }
+  lista.forEach((c) => {
+    const item = el('div', 'cmd');
+    const cab = el('div', 'cmd-cab');
+    cab.append(el('span', '', hora(c.quando)));
+    if (estado.visao === 'todas') cab.append(el('span', 'tag', c.dupla.replace('dupla', 'Dupla ')));
+    cab.append(c.ok ? el('span', 'tag ok', c.linhas === null || c.linhas === undefined ? 'executado' : `${c.linhas} ${Number(c.linhas) === 1 ? 'linha' : 'linhas'}`) : el('span', 'tag erro', 'erro'));
+    item.append(cab, el('pre', '', c.comando));
+    if (!c.ok && c.erro) item.append(el('p', 'msg-erro', c.erro));
+    corpo.append(item);
+  });
+}
+
+function tabelaDeLinhas(colunas, linhas) {
+  const t = el('table');
+  const cab = el('tr');
+  colunas.forEach((c) => cab.append(el('th', '', c)));
+  const th = el('thead'); th.append(cab);
+  const tb = el('tbody');
+  linhas.forEach((l) => {
+    const tr = el('tr');
+    colunas.forEach((c) => {
+      const v = l[c];
+      tr.append(v === null || v === undefined ? el('td', 'nulo', 'NULL') : el('td', '', typeof v === 'number' && Number.isFinite(v) ? String(v) : String(v)));
+    });
+    tb.append(tr);
+  });
+  t.append(th, tb);
+  const r = el('div', 'rolagem');
+  r.append(t);
+  return r;
+}
+
+function desenharTabelas(corpo) {
+  if (estado.visao === 'todas') {
+    corpo.append(el('p', 'vazio', 'Escolha uma dupla acima para ver as tabelas, as colunas e as linhas dela.'));
+    return;
+  }
+  const tabs = estado.dados.tabelas || [];
+  if (!tabs.length) { corpo.append(el('p', 'vazio', 'Esta dupla não tem tabelas.')); return; }
+  tabs.forEach((t) => {
+    const bloco = el('div', 'tab-bloco');
+    bloco.append(el('h3', '', `${estado.visao}.${t.nome}`));
+    bloco.append(el('p', 'meta', `${t.total} ${Number(t.total) === 1 ? 'linha' : 'linhas'}${t.total > t.linhas.length ? `, mostrando as primeiras ${t.linhas.length}` : ''}`));
+    const ul = el('ul', 'cols');
+    (t.colunas || []).forEach((c) => {
+      const li = el('li');
+      li.append(el('span', '', c.nome), el('span', 't', ` ${c.tipo.replace('character varying', 'varchar')}${c.obrigatorio && !c.pk ? ' · not null' : ''}`));
+      if (c.pk) li.append(el('span', 'pk', 'PK'));
+      ul.append(li);
+    });
+    bloco.append(ul);
+    if (t.linhas.length) bloco.append(tabelaDeLinhas((t.colunas || []).map((c) => c.nome), t.linhas));
+    else bloco.append(el('p', 'meta', 'Tabela vazia.'));
+    corpo.append(bloco);
+  });
+}
+
+function desenharOperacoes(corpo) {
+  const ops = estado.dados.operacoes || [];
+  const nota = el('p', 'meta', 'Cada INSERT, UPDATE ou DELETE na tabela aluno, venha do Executor de SQL ou do programa Java.');
+  nota.style.padding = '8px 16px 0';
+  corpo.append(nota);
+  if (!ops.length) { corpo.append(el('p', 'vazio', 'Nenhuma linha gravada ainda.')); return; }
+  const linhas = ops.map((o) => ({ horario: hora(o.quando), dupla: o.dupla, operacao: o.operacao, matricula: o.matricula, nome: o.nome }));
+  const cols = estado.visao === 'todas' ? ['horario', 'dupla', 'operacao', 'matricula', 'nome'] : ['horario', 'operacao', 'matricula', 'nome'];
+  const caixa = el('div', 'tab-bloco');
+  caixa.append(tabelaDeLinhas(cols, linhas));
+  corpo.append(caixa);
+}
+
+function desenhar() {
+  if (!estado.dados) return;
+  desenharGrade();
+  desenharAbas();
+  const corpo = $('corpo');
+  corpo.replaceChildren();
+  if (estado.aba === 'comandos') desenharComandos(corpo);
+  else if (estado.aba === 'tabelas') desenharTabelas(corpo);
+  else desenharOperacoes(corpo);
+  $('detalhe').hidden = false;
+}
+
+function escolher(visao) {
+  if (estado.visao === visao) return;
+  estado.visao = visao;
+  if (visao === 'todas' && estado.aba === 'tabelas') estado.aba = 'comandos';
+  carregar().then(agendar);
+}
+
+// ---------------------------------------------------------------- início
+$('atualizar').addEventListener('click', () => { carregar().then(agendar); });
+$('auto').addEventListener('change', agendar);
+$('so-erros').addEventListener('change', (ev) => { estado.soErros = ev.target.checked; desenhar(); });
+$('busca').addEventListener('input', (ev) => { estado.busca = ev.target.value; desenhar(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && estado.permitido) carregar().then(agendar); });
+
+(async function iniciar() {
+  let usuario = null, mcp = null;
+  try { usuario = await claude.use('user'); } catch (e) { usuario = null; }
+  try { mcp = await claude.use('mcp'); } catch (e) { mcp = null; }
+  let email = null, dono = false;
+  try {
+    if (usuario) {
+      const eu = await usuario.me();
+      email = eu.email || null;
+      dono = Boolean(eu.isOwner) || (await usuario.isOwner());
+    }
+  } catch (e) { /* segue sem identificação */ }
+  const quem = $('quem');
+  quem.textContent = email || (dono ? 'Dono da página' : 'Sem identificação');
+  estado.permitido = dono || (email !== null && email.toLowerCase() === EMAIL_PROFESSOR);
+  if (!estado.permitido) {
+    aviso(`Acesso restrito. Clique em Sair e entre com a conta Google ${EMAIL_PROFESSOR}.`);
+    $('sair').hidden = false;
+    return;
+  }
+  quem.classList.add('ok');
+  $('sair').hidden = false;
+  window.__iniciado = true;
+  if (!mcp) {
+    aviso('Este painel só funciona dentro do Claude, com o conector Neon ligado à sua conta.');
+    return;
+  }
+  estado.mcp = mcp;
+  aviso('Lendo o banco da turma...', true);
+  await carregar();
+  agendar();
+})();
+</script>
+
+</body>
+</html>

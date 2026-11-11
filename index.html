@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Executor de SQL</title>
+<style>
+/* Ferramenta de sala: faixa azul da IBMEC, tabelas e colunas da dupla na lateral, editor e histórico (o mais recente em cima) */
+:root {
+  --navy: #0F2B5B; --navy-escuro: #0A1F42; --ouro: #F2A900; --ouro-txt: #8A5F00;
+  --tinta: #1B2432; --cinza: #5A6472; --painel: #F3F5F9; --linha: #D8DEE8; --branco: #FFFFFF;
+  --verde: #1F6B3B; --verde-claro: #EAF4ED; --vermelho: #A8271E; --vermelho-claro: #FBEDEC;
+  --sans: Calibri, Carlito, "Segoe UI", system-ui, sans-serif;
+  --serif: Cambria, Caladea, Georgia, serif;
+  --mono: Consolas, "Cascadia Mono", "DejaVu Sans Mono", "Courier New", monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { background: var(--painel); }
+body { margin: 0; background: var(--painel); color: var(--tinta); font: 17px/1.45 var(--sans); }
+code, pre, textarea, input, select, button { font: inherit; }
+code { font-family: var(--mono); font-size: 0.9em; }
+
+.faixa { background: var(--navy); color: var(--branco); border-bottom: 4px solid var(--ouro); }
+.faixa-in, .corpo { max-width: 1400px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.faixa-in { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; padding-block: 18px 16px; }
+.olho { margin: 0; color: var(--ouro); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+h1 { margin: 2px 0 0; font: 700 30px/1.15 var(--serif); text-wrap: balance; }
+.banco { margin: 2px 0 0; color: #C9D3E3; font-size: 14px; }
+.status { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 5px 12px; border-radius: 999px; font-size: 15px; font-weight: 700; background: rgba(255,255,255,0.12); color: #DDE4EF; }
+.status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #8B95A5; }
+.status.ligado { background: var(--verde-claro); color: var(--verde); }
+.status.ligado::before { background: var(--verde); }
+
+.corpo { display: grid; grid-template-columns: 290px minmax(0, 1fr) 310px; grid-template-areas: "lat main ex"; gap: 20px; align-items: start; padding-block: 22px 40px; }
+main { display: grid; gap: 18px; min-width: 0; }
+.lateral { background: var(--branco); border: 1px solid var(--linha); border-radius: 6px; padding: 14px 16px 16px; min-width: 0; }
+#lateral { grid-area: lat; }
+#exemplos { grid-area: ex; }
+.corpo > main { grid-area: main; }
+@media (min-width: 1200px) { .lateral { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; } }
+.lateral h2 { margin: 0 0 10px; font: 700 13px/1.3 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--cinza); }
+.lateral h2 code { text-transform: none; letter-spacing: 0; color: var(--navy); font-size: 14px; }
+.lateral .vazio { font-size: 14.5px; }
+.tab { margin: 0 0 14px; }
+.tab-nome { margin: 0 0 4px; font: 700 16px/1.3 var(--mono); color: var(--navy); }
+.tab ul { margin: 0; padding: 0; list-style: none; border-left: 2px solid var(--linha); }
+.tab li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 3px 0 3px 10px; font-family: var(--mono); font-size: 14px; }
+.tab li .tipo { color: var(--cinza); font-size: 13px; text-align: right; }
+.tab li .pk { margin-left: 6px; padding: 0 5px; border-radius: 3px; background: var(--ouro); color: var(--navy-escuro); font: 700 11px/1.5 var(--sans); letter-spacing: 0.04em; }
+.ex { margin: 0 0 8px; }
+.ex-bt { display: block; width: 100%; height: auto; padding: 7px 10px 8px; text-align: left; background: #FBFCFE; color: var(--tinta); border: 1px solid var(--linha); border-radius: 4px; font-weight: 400; }
+.ex-bt:hover { background: var(--painel); border-color: #B8C2D3; }
+.ex-nome { display: block; margin-bottom: 3px; font: 700 12.5px/1.3 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--navy); }
+.ex-bt code { display: block; white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.4; color: var(--tinta); }
+.nota-ex { margin: 10px 0 0; color: var(--cinza); font-size: 13.5px; }
+.tab li .nn { color: var(--cinza); font-size: 12px; }
+.cartao { background: var(--branco); border: 1px solid var(--linha); border-radius: 6px; padding: 18px 20px; min-width: 0; }
+
+#form-entrada { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+.campo { display: grid; gap: 4px; }
+label, .rotulo { font-size: 14px; font-weight: 700; color: var(--navy); }
+select { height: 40px; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); }
+select { min-width: 130px; font-family: var(--mono); }
+input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); font-family: var(--mono); }
+#form-cofre { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+button { height: 40px; padding: 0 18px; border: 0; border-radius: 4px; background: var(--navy); color: var(--branco); font-weight: 700; cursor: pointer; }
+button:hover { background: var(--navy-escuro); }
+button:disabled { background: #8B95A5; cursor: wait; }
+button.secundario { background: transparent; color: var(--navy); border: 1px solid #B8C2D3; height: 34px; padding: 0 12px; font-weight: 600; }
+button.secundario:hover { background: var(--painel); }
+:focus-visible { outline: 3px solid var(--ouro); outline-offset: 2px; }
+.msg { margin: 12px 0 0; padding: 10px 12px; border-radius: 4px; background: var(--vermelho-claro); color: var(--vermelho); }
+.msg.info { background: var(--painel); color: var(--cinza); }
+
+.cab-editor { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+textarea { display: block; width: 100%; min-height: 150px; padding: 10px 12px; border: 1px solid #B8C2D3; border-radius: 4px; background: #FBFCFE; color: var(--tinta); font-family: var(--mono); font-size: 16px; line-height: 1.5; resize: vertical; }
+.acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 10px; }
+.dica { color: var(--cinza); font-size: 14.5px; max-width: 62ch; }
+
+#historico { display: grid; gap: 14px; }
+.vazio { margin: 0; color: var(--cinza); font-size: 15px; }
+.grupo { background: var(--branco); border: 1px solid var(--linha); border-radius: 6px; min-width: 0; }
+.grupo-cab { margin: 0; padding: 8px 16px; border-bottom: 1px solid var(--linha); color: var(--cinza); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.bloco { padding: 10px 16px 12px; border-top: 1px solid var(--linha); min-width: 0; }
+.bloco:first-of-type { border-top: 0; }
+.cmd { margin: 0 0 6px; padding: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--mono); font-size: 14.5px; color: var(--cinza); cursor: pointer; }
+.cmd:hover { color: var(--navy); }
+.res { margin: 0; font-family: var(--mono); font-size: 15px; color: var(--tinta); font-variant-numeric: tabular-nums; }
+.bloco.esperando .res { color: var(--cinza); }
+.bloco.erro .res { color: var(--vermelho); font-weight: 700; }
+.detalhe { margin: 2px 0 0; font-family: var(--mono); font-size: 14.5px; color: var(--vermelho); }
+.dica-erro { margin: 6px 0 0; font-size: 15px; color: var(--tinta); }
+.tabela { overflow-x: auto; margin: 4px 0 8px; }
+table { border-collapse: collapse; font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+th { background: var(--navy); color: var(--branco); font-weight: 700; text-align: left; padding: 5px 14px; }
+td { padding: 4px 14px; border-bottom: 1px solid var(--linha); white-space: nowrap; }
+tr:nth-child(even) td { background: var(--painel); }
+td.nulo { color: #8B95A5; font-style: italic; }
+@media (max-width: 1199px) { .corpo { grid-template-columns: 290px minmax(0, 1fr); grid-template-areas: "lat main" "ex main"; } }
+@media (max-width: 820px) { .corpo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lat" "ex" "main"; } }
+@media (max-width: 520px) { h1 { font-size: 25px; } .campo { flex: 1 1 100%; } }
+@media (prefers-reduced-motion: no-preference) { .bloco.esperando .res { animation: pulsar 1.2s ease-in-out infinite; } }
+@keyframes pulsar { 50% { opacity: 0.45; } }
+</style>
+</head>
+<body>
+<header class="faixa">
+  <div class="faixa-in">
+    <div>
+      <h1>Executor de SQL</h1>
+    </div>
+    <p id="status" class="status">Sem conexão</p>
+  </div>
+</header>
+
+<div class="corpo">
+<aside id="lateral" class="lateral" aria-label="Tabelas da dupla">
+  <h2>Tabelas</h2>
+  <p class="vazio">Escolha a dupla e clique em Entrar para ver as tabelas e as colunas.</p>
+</aside>
+<main>
+  <section id="cofre" class="cartao" aria-labelledby="titulo-cofre">
+    <form id="form-cofre">
+      <div class="campo">
+        <label id="titulo-cofre" for="frase">Senha da turma</label>
+        <input id="frase" type="password" autocomplete="off" spellcheck="false" placeholder="a frase escrita no quadro">
+      </div>
+      <button id="abrir" type="submit">Desbloquear</button>
+    </form>
+    <p id="msg-cofre" class="msg" hidden></p>
+  </section>
+
+  <section id="entrada" class="cartao" aria-labelledby="titulo-entrada" hidden>
+    <form id="form-entrada">
+      <div class="campo">
+        <label id="titulo-entrada" for="usuario">Dupla</label>
+        <select id="usuario">
+          <option>dupla1</option><option>dupla2</option><option>dupla3</option>
+          <option>dupla4</option><option>dupla5</option><option>dupla6</option>
+        </select>
+      </div>
+      <button id="entrar" type="submit">Entrar</button>
+    </form>
+    <p id="msg-entrada" class="msg" hidden></p>
+  </section>
+
+  <section id="trabalho" class="cartao" hidden>
+    <div class="cab-editor">
+      <label for="sql" class="rotulo">Comandos SQL</label>
+      <button id="trocar" class="secundario" type="button">Trocar de dupla</button>
+    </div>
+    <textarea id="sql" spellcheck="false" placeholder="Digite aqui os comandos SQL. Cada um termina em ;"></textarea>
+    <div class="acoes">
+      <button id="executar" type="button">Executar</button>
+      <button id="limpar" class="secundario" type="button">Limpar</button>
+      <span class="dica">Ctrl+Enter também executa. Cada comando termina em <code>;</code>. O que der certo sai do editor e vai para o histórico; o que der erro fica no editor para corrigir.</span>
+    </div>
+  </section>
+
+  <section id="historico" aria-live="polite" hidden></section>
+</main>
+<aside id="exemplos" class="lateral" aria-label="Exemplos de comandos">
+  <h2>Exemplos</h2>
+  <div id="lista-ex"></div>
+  <p class="nota-ex">Clique num exemplo para levá-lo ao editor e troque <code>tabela</code>, <code>nome_campo</code>, <code>valor</code> e <code>tipo</code> pelos nomes e tipos da lista à esquerda. Em <code>aluno</code> a dupla só consulta e grava linhas; criar, alterar e apagar tabelas vale para tabelas criadas pela própria dupla.</p>
+</aside>
+</div>
+
+<script>
+// Conversa com o Neon pela web (porta 443), com o usuário da dupla escolhida.
+// Cada comando vai sozinho e é gravado na hora, como no Java.
+const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
+const BANCO = 'escola';
+// As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A frase da turma abre o cofre.
+const COFRE = { sal: 'heKfZwKasXz8fbhbX/k0NA==', iv: '4dDQJRf0tNRfl1YH', iteracoes: 300000, dados: 'mlfVDDGGNHnZU1i0d44TfofmuzGrWIpnQ9o125ZZMtY2YbefI16ZgiNOOfwkRszaqQ4lFFkvIHJtqyWz2i1u5x+h50oJzvEfwPIy2xyCHKbT2yaMuDqmQZfGHDoyfBfvcz8+Bq+ZRFYFcopFumwQ8M/VxpIaACAMjR4gR51I79SySJjb42/xcf/1+hrjm5b41l6LmvVZJ0XUiy4jFPQ/uRGjLKdUgX/dnp1mVtx+SFVaVTTk7Megw2pvHGe28J82y8QD6A==' };
+let SENHAS = null;
+const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function abrirCofre(frase) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
+  const chave = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: desB64(COFRE.sal), iterations: COFRE.iteracoes, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(COFRE.iv) }, chave, desB64(COFRE.dados));
+  return JSON.parse(new TextDecoder().decode(claro));
+}
+const estado = { usuario: null, senha: null, ocupado: false };
+const $ = (id) => document.getElementById(id);
+
+// divide o texto em comandos pelo ";", sem cortar dentro de aspas nem de comentários
+function separar(texto) {
+  const comandos = [];
+  let atual = '';
+  let i = 0;
+  const n = texto.length;
+  while (i < n) {
+    const c = texto[i];
+    const d = texto[i + 1];
+    if (c === "'" || c === '"') {
+      let j = i + 1;
+      while (j < n) {
+        if (texto[j] === c) {
+          if (texto[j + 1] === c) { j += 2; continue; }
+          break;
+        }
+        j += 1;
+      }
+      atual += texto.slice(i, j + 1);
+      i = j + 1;
+    } else if (c === '-' && d === '-') {
+      const j = texto.indexOf('\n', i);
+      const fim = j < 0 ? n : j;
+      atual += texto.slice(i, fim);
+      i = fim;
+    } else if (c === '/' && d === '*') {
+      const j = texto.indexOf('*/', i + 2);
+      const fim = j < 0 ? n : j + 2;
+      atual += texto.slice(i, fim);
+      i = fim;
+    } else if (c === ';') {
+      comandos.push(atual);
+      atual = '';
+      i += 1;
+    } else {
+      atual += c;
+      i += 1;
+    }
+  }
+  comandos.push(atual);
+  return comandos
+    .map((s) => s.trim())
+    .filter((s) => s.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '').trim() !== '');
+}
+
+async function consultar(query, usuario, senha, params = []) {
+  const conexao = `postgresql://${usuario}:${encodeURIComponent(senha)}@${HOST}/${BANCO}?sslmode=require`;
+  const controle = new AbortController();
+  const limite = setTimeout(() => controle.abort(), 45000);
+  let resposta;
+  try {
+    resposta = await fetch(`https://${HOST}/sql`, {
+      method: 'POST',
+      headers: { 'Neon-Connection-String': conexao, 'Neon-Raw-Text-Output': 'true', 'Neon-Array-Mode': 'true' },
+      body: JSON.stringify({ query, params }),
+      signal: controle.signal,
+    });
+  } catch (e) {
+    throw { rede: true };
+  } finally {
+    clearTimeout(limite);
+  }
+  let corpo = null;
+  try { corpo = await resposta.json(); } catch (e) { corpo = null; }
+  if (!resposta.ok) {
+    throw (corpo && corpo.message) ? corpo : { message: `O banco respondeu com o código HTTP ${resposta.status}.` };
+  }
+  return corpo;
+}
+
+// explicação curta para as mensagens mais comuns do laboratório
+function explicar(msg) {
+  if (/password authentication failed/.test(msg)) return 'Usuário ou senha recusados pelo banco. Avisem o professor.';
+  if (/syntax error at or near/.test(msg)) return 'Erro de digitação no SQL, perto da palavra indicada. Confiram vírgulas, aspas e parênteses.';
+  if (/duplicate key value violates unique constraint/.test(msg)) return 'Essa matrícula já está na tabela. A chave primária não aceita repetição.';
+  if (/relation ".*" does not exist/.test(msg)) return 'Nome de tabela errado. Confiram o nome na lista da esquerda.';
+  if (/column ".*" .*does not exist/.test(msg)) return 'Nome de coluna errado: as colunas são matricula, nome, nota1 e nota2.';
+  if (/must be owner of table aluno/.test(msg)) return 'A tabela aluno é do professor: a dupla consulta e grava linhas nela, mas não altera nem apaga a tabela. Para CREATE, ALTER e DROP, usem uma tabela própria, como disciplina.';
+  if (/must be owner/.test(msg)) return 'Só o dono da tabela pode alterá-la ou apagá-la.';
+  if (/permission denied/.test(msg)) return 'A dupla só trabalha no próprio schema. Escrevam o nome da tabela sem prefixo.';
+  if (/unterminated quoted string/.test(msg)) return 'Falta fechar uma aspa simples.';
+  return '';
+}
+
+function textoErro(e) {
+  if (e && e.rede) return { msg: 'Não foi possível falar com o banco.', detalhe: '', dica: 'Confiram a internet do computador. Se continuar, chamem o professor.' };
+  const msg = (e && e.message) ? e.message : String(e);
+  return { msg: `ERROR: ${msg}`, detalhe: (e && e.detail) ? `Detalhe: ${e.detail}` : '', dica: explicar(msg) };
+}
+
+function el(tag, classe, texto) {
+  const x = document.createElement(tag);
+  if (classe) x.className = classe;
+  if (texto !== undefined) x.textContent = texto;
+  return x;
+}
+
+// ---------------------------------------------------------------- exemplos na lateral direita
+const EXEMPLOS = [
+  ['SELECT · consultar', "SELECT nome_campo1, nome_campo2\nFROM tabela;"],
+  ['INSERT · inserir', "INSERT INTO tabela (nome_campo1, nome_campo2)\nVALUES (valor1, valor2);"],
+  ['UPDATE · atualizar', "UPDATE tabela\nSET nome_campo1 = valor1\nWHERE nome_campo2 = valor2;"],
+  ['DELETE · remover', "DELETE FROM tabela\nWHERE nome_campo1 = valor1;"],
+  ['CREATE · criar tabela', "CREATE TABLE tabela (\n  nome_campo1 tipo1 PRIMARY KEY,\n  nome_campo2 tipo2\n);"],
+  ['ALTER · alterar tabela', "ALTER TABLE tabela\nADD COLUMN nome_campo3 tipo3;"],
+  ['DROP · apagar tabela', "DROP TABLE tabela;"],
+];
+EXEMPLOS.forEach(([nome, sql]) => {
+  const b = el('button', 'ex-bt');
+  b.type = 'button';
+  b.append(el('span', 'ex-nome', nome), el('code', '', sql));
+  b.addEventListener('click', () => {
+    const ed = $('sql');
+    if (ed.closest('[hidden]')) return;
+    const atual = ed.value.replace(/\s+$/, '');
+    ed.value = (atual ? `${atual}\n` : '') + sql;
+    ed.focus();
+  });
+  const d = el('div', 'ex');
+  d.append(b);
+  $('lista-ex').append(d);
+});
+
+// ---------------------------------------------------------------- tabelas e colunas na lateral
+const SQL_ESQUEMA = `SELECT c.table_name, c.column_name, c.data_type, c.character_maximum_length,
+  c.numeric_precision, c.numeric_scale, c.is_nullable,
+  EXISTS (SELECT 1 FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage k
+            ON k.constraint_name = tc.constraint_name AND k.table_schema = tc.table_schema
+          WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = c.table_schema
+            AND k.table_name = c.table_name AND k.column_name = c.column_name) AS pk
+FROM information_schema.columns c
+JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+WHERE c.table_schema = current_user AND t.table_type = 'BASE TABLE'
+ORDER BY c.table_name, c.ordinal_position`;
+
+function nomeDoTipo(tipo, tam, prec, esc) {
+  if (tipo === 'character varying') return tam ? `varchar(${tam})` : 'varchar';
+  if (tipo === 'character') return `char(${tam || 1})`;
+  if (tipo === 'numeric') return prec ? `numeric(${prec},${esc || 0})` : 'numeric';
+  if (tipo === 'timestamp without time zone') return 'timestamp';
+  if (tipo === 'timestamp with time zone') return 'timestamptz';
+  return tipo;
+}
+
+async function atualizarLateral() {
+  const lateral = $('lateral');
+  if (!estado.usuario) {
+    lateral.replaceChildren(el('h2', '', 'Tabelas'), el('p', 'vazio', 'Escolha a dupla e clique em Entrar para ver as tabelas e as colunas.'));
+    return;
+  }
+  try {
+    const r = await consultar(SQL_ESQUEMA, estado.usuario, estado.senha);
+    const titulo = el('h2', '', 'Tabelas de ');
+    titulo.append(el('code', '', estado.usuario));
+    const novo = [titulo];
+    if (!r.rows.length) novo.push(el('p', 'vazio', 'Nenhuma tabela neste schema.'));
+    let atual = null, lista = null;
+    r.rows.forEach(([tab, col, tipo, tam, prec, esc, nulo, pk]) => {
+      if (tab !== atual) {
+        atual = tab;
+        const bloco = el('div', 'tab');
+        bloco.append(el('p', 'tab-nome', tab));
+        lista = el('ul');
+        bloco.append(lista);
+        novo.push(bloco);
+      }
+      const ehPk = ['t', 'true', 'True'].includes(pk);
+      const li = el('li');
+      const nome = el('span', '', col);
+      if (ehPk) nome.append(el('span', 'pk', 'PK'));
+      const t = nomeDoTipo(tipo, tam, prec, esc) + (nulo === 'NO' && !ehPk ? ' · not null' : '');
+      li.append(nome, el('span', 'tipo', t));
+      lista.append(li);
+    });
+    lateral.replaceChildren(...novo);
+  } catch (e) {
+    lateral.replaceChildren(el('h2', '', 'Tabelas'), el('p', 'vazio', 'Não consegui ler as tabelas agora.'));
+  }
+}
+
+// ---------------------------------------------------------------- cofre
+$('form-cofre').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const aviso = $('msg-cofre');
+  const frase = $('frase').value.trim();
+  if (!frase) { aviso.className = 'msg'; aviso.textContent = 'Digite a senha da turma.'; aviso.hidden = false; return; }
+  $('abrir').disabled = true;
+  aviso.className = 'msg info';
+  aviso.textContent = 'Abrindo...';
+  aviso.hidden = false;
+  try {
+    SENHAS = await abrirCofre(frase);
+    $('cofre').hidden = true;
+    $('entrada').hidden = false;
+    $('usuario').focus();
+  } catch (e) {
+    aviso.className = 'msg';
+    aviso.textContent = window.crypto && crypto.subtle ? 'Senha da turma incorreta.' : 'Este navegador não consegue abrir o cofre. Use o Chrome, o Edge ou o Firefox atualizados.';
+  } finally {
+    $('abrir').disabled = false;
+  }
+});
+
+// ---------------------------------------------------------------- entrada
+$('form-entrada').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const usuario = $('usuario').value;
+  const senha = SENHAS[usuario];
+  const aviso = $('msg-entrada');
+  $('entrar').disabled = true;
+  aviso.className = 'msg info';
+  aviso.textContent = 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.';
+  aviso.hidden = false;
+  try {
+    const r = await consultar('SELECT current_user', usuario, senha);
+    estado.usuario = r.rows[0][0];
+    estado.senha = senha;
+    $('status').textContent = `${estado.usuario} conectada`;
+    $('status').classList.add('ligado');
+    $('entrada').hidden = true;
+    $('trabalho').hidden = false;
+    $('historico').hidden = false;
+    if (!$('historico').children.length) $('historico').append(el('p', 'vazio', 'Os comandos executados aparecem aqui, os mais recentes em cima.'));
+    aviso.hidden = true;
+    atualizarLateral();
+    $('sql').focus();
+  } catch (e) {
+    const t = textoErro(e);
+    aviso.className = 'msg';
+    aviso.textContent = [t.msg, t.dica].filter(Boolean).join(' ');
+  } finally {
+    $('entrar').disabled = false;
+  }
+});
+
+$('trocar').addEventListener('click', () => {
+  estado.usuario = null;
+  estado.senha = null;
+  $('status').textContent = 'Sem conexão';
+  $('status').classList.remove('ligado');
+  $('trabalho').hidden = true;
+  $('historico').hidden = true;
+  $('historico').replaceChildren();
+  atualizarLateral();
+  $('entrada').hidden = false;
+  $('usuario').focus();
+});
+
+// ---------------------------------------------------------------- execução
+function mostrarResultado(bloco, r) {
+  bloco.classList.remove('esperando');
+  const res = bloco.querySelector('.res');
+  if (r.fields && r.fields.length) {
+    const tabela = el('table');
+    const cab = el('tr');
+    r.fields.forEach((f) => cab.append(el('th', '', f.name)));
+    const thead = el('thead');
+    thead.append(cab);
+    const tbody = el('tbody');
+    r.rows.forEach((linha) => {
+      const tr = el('tr');
+      linha.forEach((v) => tr.append(v === null ? el('td', 'nulo', 'NULL') : el('td', '', v)));
+      tbody.append(tr);
+    });
+    tabela.append(thead, tbody);
+    const caixa = el('div', 'tabela');
+    caixa.append(tabela);
+    bloco.insertBefore(caixa, res);
+    res.textContent = `Linhas encontradas: ${r.rows.length}`;
+  } else if (['INSERT', 'UPDATE', 'DELETE'].includes(r.command)) {
+    res.textContent = `Linhas afetadas: ${r.rowCount}`;
+  } else {
+    res.textContent = `Comando executado: ${r.command}`;
+  }
+}
+
+function mostrarErro(bloco, e) {
+  bloco.classList.remove('esperando');
+  bloco.classList.add('erro');
+  const t = textoErro(e);
+  bloco.querySelector('.res').textContent = t.msg;
+  if (t.detalhe) bloco.append(el('p', 'detalhe', t.detalhe));
+  if (t.dica) bloco.append(el('p', 'dica-erro', t.dica));
+}
+
+// Cada comando digitado é anotado no registro do professor. A função do banco grava o nome do usuário
+// que fez a chamada, e a página não espera a resposta: se a anotação falhar, o aluno nem percebe.
+function registrar(comando, ok, erro, linhas) {
+  consultar('SELECT professor.registrar_comando($1, $2, $3, $4)', estado.usuario, estado.senha,
+    [`${comando};`, ok, erro, linhas]).catch(() => {});
+}
+
+async function executar() {
+  if (estado.ocupado || !estado.usuario) return;
+  const editor = $('sql');
+  const texto = editor.value;
+  const ini = editor.selectionStart;
+  const fim = editor.selectionEnd;
+  const temSelecao = fim > ini;
+  const alvo = temSelecao ? texto.slice(ini, fim) : texto;
+  const comandos = separar(alvo);
+  if (!comandos.length) return;
+
+  estado.ocupado = true;
+  $('executar').disabled = true;
+  const hist = $('historico');
+  const vazio = hist.querySelector('.vazio');
+  if (vazio) vazio.remove();
+  const grupo = el('div', 'grupo');
+  const hora = new Date().toLocaleTimeString('pt-BR');
+  grupo.append(el('p', 'grupo-cab', `${hora} · ${comandos.length} ${comandos.length === 1 ? 'comando' : 'comandos'} · ${estado.usuario}`));
+  hist.prepend(grupo);
+
+  const comErro = [];
+  for (const c of comandos) {
+    const bloco = el('div', 'bloco esperando');
+    const cmd = el('pre', 'cmd', `${c};`);
+    cmd.title = 'Clique para trazer este comando de volta ao editor';
+    cmd.addEventListener('click', () => {
+      const atual = editor.value.replace(/\s+$/, '');
+      editor.value = (atual ? `${atual}\n` : '') + `${c};`;
+      editor.focus();
+    });
+    bloco.append(cmd, el('p', 'res', 'Executando…'));
+    grupo.append(bloco);
+    try {
+      const r = await consultar(c, estado.usuario, estado.senha);
+      mostrarResultado(bloco, r);
+      registrar(c, true, null, r.rowCount ?? r.rows.length);
+    } catch (e) {
+      mostrarErro(bloco, e);
+      comErro.push(`${c};`);
+      if (!e.rede) registrar(c, false, e.message || 'erro', null);
+    }
+  }
+
+  // o que deu certo sai do editor; o que deu erro fica para corrigir
+  const resto = comErro.join('\n');
+  editor.value = temSelecao ? texto.slice(0, ini) + resto + texto.slice(fim) : resto;
+  editor.focus();
+  estado.ocupado = false;
+  $('executar').disabled = false;
+  atualizarLateral();
+}
+
+$('executar').addEventListener('click', executar);
+$('limpar').addEventListener('click', () => {
+  $('sql').value = '';
+  $('sql').focus();
+});
+$('sql').addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+    ev.preventDefault();
+    executar();
+  }
+});
+</script>
+</body>
+</html>
