@@ -180,7 +180,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
 // As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A frase da turma abre o cofre.
-const COFRE = { sal: '/8PM9Sc4qiJLO0jj9WVzoQ==', iv: 'VsdNZVbagjUTpFuG', iteracoes: 300000, dados: 'A6E+EmkGTLXZNdcZV3/TILBD53q1beZKWI7WFyUd6tGxnm+90bKXHyLFgp4XxmCn4f+HxV7/WVEbnQNsVkedn1Dg3jUxdaH85AfYhHxZkQOqF3NfdON5giRedwX69rbQ7CBo5MuB0YV+/9zGFL3XtGP+EIRvVEl9nETTUVc5WEW9jPiGWpAweND+cLutl3u9/I7OHf8O53fR6x+IY5JvSWHtELP8Yx3yTvk/CldR7xe5Da87OI3Dgt+IcXmmhqiWRBLpkA==' };
+const COFRE = { sal: 'cvejcBaDrolmOVK5gMbjDw==', iv: 'T8/+wTkqAhffy6dU', iteracoes: 300000, dados: '0lO3I3/5PBQfgNu5Cx9gdP5K2PBO8MeGEkzTBnjpWqwxNAG6GvIJmP9jJUgeBwACujkNn1B01YGYkUqY6cTUNlvk1r4rJoKUZWRh++RdgtqeFf7ld5I+ohstfSavSGZjcMfQNj+d7SXJ21p2B2AnWGt/8bls6Mxvp7zalgv5Pgs5FE0JUNbcEo8Sh5urDwedztYyLwUwGuXniu7/MllibmiBSsrG4O7cAmjeTes5TsI3UimgpARDtFcR8gjHnRXX4m1tIElwBGhr2unH+KXGu8oxoZIVDNl129a6Y76FORKeknpwjvtTx+qMTJLhkl5JulfsN4RzQtrhVMf5I9gDOEPpQyD3VLGDoMthHQKma5EGxp3Wc2qVOjs28buMRA/Zsht893IwVX/CdHdR4xVvMjOtBKzAyEgIKMHjHwJUvwSPN4cq/JSFCv1wEJPYOkx6jUeFjwpxrvfP2XEYUoMP6nyUxwgy+blCvhE1ixUKn6QzDDMjGAY8knXJlg==' };
 let SENHAS = null;
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrirCofre(frase) {
@@ -265,6 +265,7 @@ async function consultar(query, usuario, senha, params = []) {
 
 // explicação curta para as mensagens mais comuns do laboratório
 function explicar(msg) {
+  if (/not permitted to log in/.test(msg)) return 'Esta dupla não está ativa agora. Escolham outra ou avisem o professor.';
   if (/password authentication failed/.test(msg)) return 'Usuário ou senha recusados pelo banco. Avisem o professor.';
   if (/syntax error at or near/.test(msg)) return 'Erro de digitação no SQL, perto da palavra indicada. Confiram vírgulas, aspas e parênteses.';
   if (/duplicate key value violates unique constraint/.test(msg)) return 'Essa matrícula já está na tabela. A chave primária não aceita repetição.';
@@ -376,6 +377,20 @@ async function atualizarLateral() {
 
 try { $('integrantes').value = localStorage.getItem('integrantes') || ''; } catch (e) { /* sem armazenamento */ }
 
+// A lista de duplas segue a quantidade definida pelo professor (a dupla 1 sempre existe)
+async function carregarDuplas() {
+  const sel = $('usuario');
+  let n = 6;
+  try {
+    const r = await consultar('SELECT professor.qtd_duplas()', 'dupla1', SENHAS.dupla1);
+    n = Number(r.rows[0][0]) || 6;
+  } catch (e) { /* fica com 6 */ }
+  const atual = sel.value;
+  sel.replaceChildren(...Array.from({ length: n }, (_, i) => el('option', '', `dupla${i + 1}`)));
+  if ([...sel.options].some((o) => o.value === atual)) sel.value = atual;
+}
+if (SENHAS) carregarDuplas();
+
 // ---------------------------------------------------------------- cofre
 $('form-cofre').addEventListener('submit', async (ev) => {
   ev.preventDefault();
@@ -388,6 +403,7 @@ $('form-cofre').addEventListener('submit', async (ev) => {
   aviso.hidden = false;
   try {
     SENHAS = await abrirCofre(frase);
+    carregarDuplas();
     $('cofre').hidden = true;
     $('entrada').hidden = false;
     $('usuario').focus();
