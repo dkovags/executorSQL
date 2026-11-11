@@ -64,6 +64,9 @@ select { height: 40px; padding: 0 10px; border: 1px solid #B8C2D3; border-radius
 select { min-width: 130px; font-family: var(--mono); }
 input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); font-family: var(--mono); }
 #form-cofre { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+#integrantes { height: 40px; width: 340px; max-width: 100%; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); }
+.campo-nomes { flex: 1 1 260px; }
+.campo-nomes #integrantes { width: 100%; }
 button { height: 40px; padding: 0 18px; border: 0; border-radius: 4px; background: var(--navy); color: var(--branco); font-weight: 700; cursor: pointer; }
 button:hover { background: var(--navy-escuro); }
 button:disabled { background: #8B95A5; cursor: wait; }
@@ -140,6 +143,10 @@ td.nulo { color: #8B95A5; font-style: italic; }
           <option>dupla4</option><option>dupla5</option><option>dupla6</option>
         </select>
       </div>
+      <div class="campo campo-nomes">
+        <label for="integrantes">Integrantes da dupla</label>
+        <input id="integrantes" type="text" autocomplete="off" maxlength="200" placeholder="Ex.: Ana Souza e Bruno Lima">
+      </div>
       <button id="entrar" type="submit">Entrar</button>
     </form>
     <p id="msg-entrada" class="msg" hidden></p>
@@ -150,11 +157,11 @@ td.nulo { color: #8B95A5; font-style: italic; }
       <label for="sql" class="rotulo">Comandos SQL</label>
       <button id="trocar" class="secundario" type="button">Trocar de dupla</button>
     </div>
-    <textarea id="sql" spellcheck="false" placeholder="Digite aqui os comandos SQL. Cada um termina em ;"></textarea>
+    <textarea id="sql" spellcheck="false"></textarea>
     <div class="acoes">
       <button id="executar" type="button">Executar</button>
       <button id="limpar" class="secundario" type="button">Limpar</button>
-      <span class="dica">Ctrl+Enter também executa. Cada comando termina em <code>;</code>. O que der certo sai do editor e vai para o histórico; o que der erro fica no editor para corrigir.</span>
+      <span class="dica">Ctrl+Enter também executa. Cada comando termina em <code>;</code> se tiver mais de uma instrução. O que der certo sai do editor e vai para o histórico; o que der erro fica no editor para corrigir.</span>
     </div>
   </section>
 
@@ -173,7 +180,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
 // As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A frase da turma abre o cofre.
-const COFRE = { sal: 'heKfZwKasXz8fbhbX/k0NA==', iv: '4dDQJRf0tNRfl1YH', iteracoes: 300000, dados: 'mlfVDDGGNHnZU1i0d44TfofmuzGrWIpnQ9o125ZZMtY2YbefI16ZgiNOOfwkRszaqQ4lFFkvIHJtqyWz2i1u5x+h50oJzvEfwPIy2xyCHKbT2yaMuDqmQZfGHDoyfBfvcz8+Bq+ZRFYFcopFumwQ8M/VxpIaACAMjR4gR51I79SySJjb42/xcf/1+hrjm5b41l6LmvVZJ0XUiy4jFPQ/uRGjLKdUgX/dnp1mVtx+SFVaVTTk7Megw2pvHGe28J82y8QD6A==' };
+const COFRE = { sal: '/8PM9Sc4qiJLO0jj9WVzoQ==', iv: 'VsdNZVbagjUTpFuG', iteracoes: 300000, dados: 'A6E+EmkGTLXZNdcZV3/TILBD53q1beZKWI7WFyUd6tGxnm+90bKXHyLFgp4XxmCn4f+HxV7/WVEbnQNsVkedn1Dg3jUxdaH85AfYhHxZkQOqF3NfdON5giRedwX69rbQ7CBo5MuB0YV+/9zGFL3XtGP+EIRvVEl9nETTUVc5WEW9jPiGWpAweND+cLutl3u9/I7OHf8O53fR6x+IY5JvSWHtELP8Yx3yTvk/CldR7xe5Da87OI3Dgt+IcXmmhqiWRBLpkA==' };
 let SENHAS = null;
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrirCofre(frase) {
@@ -183,7 +190,7 @@ async function abrirCofre(frase) {
   const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(COFRE.iv) }, chave, desB64(COFRE.dados));
   return JSON.parse(new TextDecoder().decode(claro));
 }
-const estado = { usuario: null, senha: null, ocupado: false };
+const estado = { usuario: null, senha: null, ocupado: false, integrantes: '' };
 const $ = (id) => document.getElementById(id);
 
 // divide o texto em comandos pelo ";", sem cortar dentro de aspas nem de comentários
@@ -367,6 +374,8 @@ async function atualizarLateral() {
   }
 }
 
+try { $('integrantes').value = localStorage.getItem('integrantes') || ''; } catch (e) { /* sem armazenamento */ }
+
 // ---------------------------------------------------------------- cofre
 $('form-cofre').addEventListener('submit', async (ev) => {
   ev.preventDefault();
@@ -404,7 +413,10 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     const r = await consultar('SELECT current_user', usuario, senha);
     estado.usuario = r.rows[0][0];
     estado.senha = senha;
-    $('status').textContent = `${estado.usuario} conectada`;
+    estado.integrantes = $('integrantes').value.trim().replace(/\s+/g, ' ');
+    try { localStorage.setItem('integrantes', estado.integrantes); } catch (e) { /* sem armazenamento */ }
+    if (estado.integrantes) consultar('SELECT professor.registrar_integrantes($1)', estado.usuario, estado.senha, [estado.integrantes]).catch(() => {});
+    $('status').textContent = estado.integrantes ? `${estado.usuario} conectada · ${estado.integrantes}` : `${estado.usuario} conectada`;
     $('status').classList.add('ligado');
     $('entrada').hidden = true;
     $('trabalho').hidden = false;
@@ -475,8 +487,8 @@ function mostrarErro(bloco, e) {
 // Cada comando digitado é anotado no registro do professor. A função do banco grava o nome do usuário
 // que fez a chamada, e a página não espera a resposta: se a anotação falhar, o aluno nem percebe.
 function registrar(comando, ok, erro, linhas) {
-  consultar('SELECT professor.registrar_comando($1, $2, $3, $4)', estado.usuario, estado.senha,
-    [`${comando};`, ok, erro, linhas]).catch(() => {});
+  consultar('SELECT professor.registrar_comando($1, $2, $3, $4, $5)', estado.usuario, estado.senha,
+    [`${comando};`, ok, erro, linhas, estado.integrantes || null]).catch(() => {});
 }
 
 async function executar() {
@@ -497,7 +509,7 @@ async function executar() {
   if (vazio) vazio.remove();
   const grupo = el('div', 'grupo');
   const hora = new Date().toLocaleTimeString('pt-BR');
-  grupo.append(el('p', 'grupo-cab', `${hora} · ${comandos.length} ${comandos.length === 1 ? 'comando' : 'comandos'} · ${estado.usuario}`));
+  grupo.append(el('p', 'grupo-cab', `${hora} · ${comandos.length} ${comandos.length === 1 ? 'comando' : 'comandos'} · ${estado.usuario}${estado.integrantes ? ` (${estado.integrantes})` : ''}`));
   hist.prepend(grupo);
 
   const comErro = [];

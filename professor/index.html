@@ -63,6 +63,7 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 18px 48px; display: gri
 .card-dupla .linha { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--muted); }
 .card-dupla .linha b { color: var(--fg); font-variant-numeric: tabular-nums; }
 .card-dupla .linha b.erro { color: var(--err); }
+.card-dupla .nomes { font-size: 13.5px; color: var(--fg); margin: -2px 0 4px; overflow-wrap: anywhere; }
 .card-dupla .quando { font-size: 13px; color: var(--muted); margin-top: 2px; }
 .card-todas h3 { font-size: 17px; }
 
@@ -222,11 +223,11 @@ window.claude = {
           }
           const corpo = await r.json().catch(() => null);
           if (r.status === 401) {
-            mostrarLogin('O Neon recusou o login. Entre de novo.');
+            mostrarLogin(`O Neon recusou o login: ${(corpo && corpo.message) || 'HTTP 401'}`);
             throw { code: 'needs_reauth', message: (corpo && corpo.message) || 'HTTP 401' };
           }
           if (!r.ok) {
-            const negado = corpo && (corpo.code === '42501' || /acesso negado/.test(corpo.message || ''));
+            const negado = r.status === 403 || (corpo && (corpo.code === '42501' || /acesso negado/.test(corpo.message || '')));
             throw { code: negado ? 'not_granted' : 'tool_error', message: (corpo && corpo.message) || `HTTP ${r.status}` };
           }
           return { payload: [{ dados: corpo }] };
@@ -275,8 +276,8 @@ function aviso(texto, info) {
 function textoDoErro(e) {
   const c = e && e.code;
   if (c === 'server_not_connected') return 'O conector Neon não está ligado à sua conta do Claude. Conecte-o em Configurações > Conectores e abra o painel de novo.';
-  if (c === 'needs_reauth') return 'A sessão do Google terminou. Entre de novo com o botão acima.';
-  if (c === 'not_granted') return 'Esta conta Google não tem acesso ao painel. Clique em Sair e entre com a conta do professor.';
+  if (c === 'needs_reauth') return `O login foi recusado ou expirou${e.message ? ` (${e.message})` : ''}. Entre de novo com o botão acima.`;
+  if (c === 'not_granted') return `O banco recusou o acesso: ${(e.message || '').replace(/^acesso negado: /, '')}. Clique em Sair e entre com a conta do professor.`;
   const m = (e && e.message) || String(e);
   if (/painel_dados|professor\.comandos/.test(m)) return 'O banco ainda não tem o registro de comandos. Rode banco/registro_de_comandos.sql e banco/painel_do_professor.sql no SQL Editor do Neon.';
   return `Não consegui ler o banco: ${m}`;
@@ -338,6 +339,7 @@ function desenharGrade() {
     b.type = 'button';
     b.setAttribute('aria-pressed', String(estado.visao === d.dupla));
     b.append(el('h3', '', d.dupla.replace('dupla', 'Dupla ')));
+    b.append(el('div', 'nomes', d.integrantes || 'integrantes não informados'));
     const a = el('div', 'linha'); a.append(el('span', '', 'alunos'), el('b', '', String(d.alunos)));
     const c = el('div', 'linha'); c.append(el('span', '', 'comandos'), el('b', '', String(d.comandos)));
     const e = el('div', 'linha'); e.append(el('span', '', 'com erro'), el('b', d.erros ? 'erro' : '', String(d.erros)));
@@ -377,6 +379,7 @@ function desenharComandos(corpo) {
     const cab = el('div', 'cmd-cab');
     cab.append(el('span', '', hora(c.quando)));
     if (estado.visao === 'todas') cab.append(el('span', 'tag', c.dupla.replace('dupla', 'Dupla ')));
+    if (c.integrantes) cab.append(el('span', '', c.integrantes));
     cab.append(c.ok ? el('span', 'tag ok', c.linhas === null || c.linhas === undefined ? 'executado' : `${c.linhas} ${Number(c.linhas) === 1 ? 'linha' : 'linhas'}`) : el('span', 'tag erro', 'erro'));
     item.append(cab, el('pre', '', c.comando));
     if (!c.ok && c.erro) item.append(el('p', 'msg-erro', c.erro));
