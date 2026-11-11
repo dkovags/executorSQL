@@ -126,8 +126,8 @@ td.nulo { color: #8B95A5; font-style: italic; }
   <section id="cofre" class="cartao" aria-labelledby="titulo-cofre">
     <form id="form-cofre">
       <div class="campo">
-        <label id="titulo-cofre" for="frase">Senha da turma</label>
-        <input id="frase" type="password" autocomplete="off" spellcheck="false" placeholder="a frase escrita no quadro">
+        <label id="titulo-cofre" for="frase">Chave de Acesso da Turma</label>
+        <input id="frase" type="password" autocomplete="off" spellcheck="false">
       </div>
       <button id="abrir" type="submit">Desbloquear</button>
     </form>
@@ -179,8 +179,8 @@ td.nulo { color: #8B95A5; font-style: italic; }
 // Cada comando vai sozinho e é gravado na hora, como no Java.
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
-// As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A frase da turma abre o cofre.
-const COFRE = { sal: 'cvejcBaDrolmOVK5gMbjDw==', iv: 'T8/+wTkqAhffy6dU', iteracoes: 300000, dados: '0lO3I3/5PBQfgNu5Cx9gdP5K2PBO8MeGEkzTBnjpWqwxNAG6GvIJmP9jJUgeBwACujkNn1B01YGYkUqY6cTUNlvk1r4rJoKUZWRh++RdgtqeFf7ld5I+ohstfSavSGZjcMfQNj+d7SXJ21p2B2AnWGt/8bls6Mxvp7zalgv5Pgs5FE0JUNbcEo8Sh5urDwedztYyLwUwGuXniu7/MllibmiBSsrG4O7cAmjeTes5TsI3UimgpARDtFcR8gjHnRXX4m1tIElwBGhr2unH+KXGu8oxoZIVDNl129a6Y76FORKeknpwjvtTx+qMTJLhkl5JulfsN4RzQtrhVMf5I9gDOEPpQyD3VLGDoMthHQKma5EGxp3Wc2qVOjs28buMRA/Zsht893IwVX/CdHdR4xVvMjOtBKzAyEgIKMHjHwJUvwSPN4cq/JSFCv1wEJPYOkx6jUeFjwpxrvfP2XEYUoMP6nyUxwgy+blCvhE1ixUKn6QzDDMjGAY8knXJlg==' };
+// As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
+const COFRE = { sal: 'eABNgzmUyjOxXake5HoQGQ==', iv: 'jFpc1QqY40oxnx39', iteracoes: 300000, dados: 'L9c7ogH2CMkwqIdBVWOY9Q0AwvwsIdzGCH3ZYZ6dVIFOYIsAY9MjPm6DaBkwO4sbgcdKbFhwZtuJTzDE0w0SVQLdwsjyhV0C2RSfTFAG/lXMuZOE10sjxpECQLyKE47YKggz+uHTkHxeJr4+Y6TX74f1nqEcMj0dTd2wKs08tJJkONhUZfSCkzSUrB6zf/SNSwdqnXs9STJ+XChCAl5ZmvtPXeksVhJG6PcjFCoFy/jFY2XMX1v7qNt+mMlSp7TgOvLF2qlyzSntEH2RGkl2+lyi6mM/DToA+PvwTP1vjev3+f/M3+LqEA8ZVd7gJe7pMbp/ENMTJScHp+/D1JQY0OUJEEq9es7YHK6FalkGu5p1Y2aknwR6yvGFF/UVu0+4spVpkpEocdxGI0r7GBC2Qpv2/8EXzmdTZ6zbU+HTL7ZLy27pExWTV9LRdJvXL4MSWh6wY6BuhCJzq+Rngq9mPQRZzXXK7JyEvXjS+M0yB9cUtIAM+ZRVQ2dwww==' };
 let SENHAS = null;
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrirCofre(frase) {
@@ -297,8 +297,8 @@ const EXEMPLOS = [
   ['INSERT · inserir', "INSERT INTO tabela (nome_campo1, nome_campo2)\nVALUES (valor1, valor2);"],
   ['UPDATE · atualizar', "UPDATE tabela\nSET nome_campo1 = valor1\nWHERE nome_campo2 = valor2;"],
   ['DELETE · remover', "DELETE FROM tabela\nWHERE nome_campo1 = valor1;"],
-  ['CREATE · criar tabela', "CREATE TABLE tabela (\n  nome_campo1 tipo1 PRIMARY KEY,\n  nome_campo2 tipo2\n);"],
-  ['ALTER · alterar tabela', "ALTER TABLE tabela\nADD COLUMN nome_campo3 tipo3;"],
+  ['CREATE · criar tabela', "CREATE TABLE tabela (\n  nome_campo1 tipo1 PRIMARY KEY,\n  nome_campo2 tipo2 NOT NULL,\n  nome_campo3 tipo3 NULL\n);"],
+  ['ALTER · alterar tabela', "ALTER TABLE tabela\nADD COLUMN nome_campo4 tipo4;"],
   ['DROP · apagar tabela', "DROP TABLE tabela;"],
 ];
 EXEMPLOS.forEach(([nome, sql]) => {
@@ -396,7 +396,7 @@ $('form-cofre').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   const aviso = $('msg-cofre');
   const frase = $('frase').value.trim();
-  if (!frase) { aviso.className = 'msg'; aviso.textContent = 'Digite a senha da turma.'; aviso.hidden = false; return; }
+  if (!frase) { aviso.className = 'msg'; aviso.textContent = 'Digite a chave de acesso da turma.'; aviso.hidden = false; return; }
   $('abrir').disabled = true;
   aviso.className = 'msg info';
   aviso.textContent = 'Abrindo...';
@@ -409,7 +409,7 @@ $('form-cofre').addEventListener('submit', async (ev) => {
     $('usuario').focus();
   } catch (e) {
     aviso.className = 'msg';
-    aviso.textContent = window.crypto && crypto.subtle ? 'Senha da turma incorreta.' : 'Este navegador não consegue abrir o cofre. Use o Chrome, o Edge ou o Firefox atualizados.';
+    aviso.textContent = window.crypto && crypto.subtle ? 'Chave de acesso incorreta.' : 'Este navegador não consegue abrir o cofre. Use o Chrome, o Edge ou o Firefox atualizados.';
   } finally {
     $('abrir').disabled = false;
   }
