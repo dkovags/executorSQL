@@ -180,7 +180,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
 // As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'eABNgzmUyjOxXake5HoQGQ==', iv: 'jFpc1QqY40oxnx39', iteracoes: 300000, dados: 'L9c7ogH2CMkwqIdBVWOY9Q0AwvwsIdzGCH3ZYZ6dVIFOYIsAY9MjPm6DaBkwO4sbgcdKbFhwZtuJTzDE0w0SVQLdwsjyhV0C2RSfTFAG/lXMuZOE10sjxpECQLyKE47YKggz+uHTkHxeJr4+Y6TX74f1nqEcMj0dTd2wKs08tJJkONhUZfSCkzSUrB6zf/SNSwdqnXs9STJ+XChCAl5ZmvtPXeksVhJG6PcjFCoFy/jFY2XMX1v7qNt+mMlSp7TgOvLF2qlyzSntEH2RGkl2+lyi6mM/DToA+PvwTP1vjev3+f/M3+LqEA8ZVd7gJe7pMbp/ENMTJScHp+/D1JQY0OUJEEq9es7YHK6FalkGu5p1Y2aknwR6yvGFF/UVu0+4spVpkpEocdxGI0r7GBC2Qpv2/8EXzmdTZ6zbU+HTL7ZLy27pExWTV9LRdJvXL4MSWh6wY6BuhCJzq+Rngq9mPQRZzXXK7JyEvXjS+M0yB9cUtIAM+ZRVQ2dwww==' };
+const COFRE = { sal: 'PqxVpOZiKnVdSuipR4Q8vw==', iv: '1yemH3Pxc9eSkB4B', iteracoes: 300000, dados: 'pcsxtGbzK0wk1LYlQOhZ/GLNvY3wtneMyGMpNO6xo2yUAVvf4xpWFMHurfO5a0Y8P/NT6jyoa9ieWYtWf8PQWhQF7eQRowjQYAgvNYwKZgLH6OBNnNczr2eziAZVUjPvKStzDHDwvkQ7dSCm1Qdi5lZ69vwsq/eLyJe7NSFX2MbtfNYxKjcd5PD8f63UYgwWK1HCxwfqjl3jJoASbgJs53zjY38y1rjj4yqf91M5bv5SoPyHCujwpqN+ZJZPgX3pLkzBb1MAxZqPgc7Tp6n0sAukEyyqUMVtIMbsHd5X6i1z5Iaq0vWU6F/MLLpGufllG2UNM5fHph6iVpuXDqrly5Oe+vyU1nqgaQ9sZifvR143ZRThODvFYW7SJmOXWeGf3mlcEOxlcZmzN0jKZ9+5m5ZVrCr1B/9v08EqR+LWGA99b4bAHhUb4ZR4gihGd+p5yXWy1Xt2SfMxw6MdepksqO8rCM1UvmBl9XnhOAAKcAKcR4wN5iVJaDFQQA==' };
 let SENHAS = null;
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrirCofre(frase) {
@@ -268,6 +268,7 @@ function explicar(msg) {
   if (/not permitted to log in/.test(msg)) return 'Esta dupla não está ativa agora. Escolham outra ou avisem o professor.';
   if (/password authentication failed/.test(msg)) return 'Usuário ou senha recusados pelo banco. Avisem o professor.';
   if (/syntax error at or near/.test(msg)) return 'Erro de digitação no SQL, perto da palavra indicada. Confiram vírgulas, aspas e parênteses.';
+  if (/violates not-null constraint/.test(msg)) return 'Faltou o valor de uma coluna obrigatória (NOT NULL).';
   if (/duplicate key value violates unique constraint/.test(msg)) return 'Essa matrícula já está na tabela. A chave primária não aceita repetição.';
   if (/relation ".*" does not exist/.test(msg)) return 'Nome de tabela errado. Confiram o nome na lista da esquerda.';
   if (/column ".*" .*does not exist/.test(msg)) return 'Nome de coluna errado: as colunas são matricula, nome, nota1 e nota2.';
