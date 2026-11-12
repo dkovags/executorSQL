@@ -16,6 +16,7 @@
   color-scheme: light;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { background: var(--painel); }
 body { margin: 0; background: var(--painel); color: var(--tinta); font: 17px/1.45 var(--sans); }
 code, pre, textarea, input, select, button { font: inherit; }
@@ -64,6 +65,8 @@ select { height: 40px; padding: 0 10px; border: 1px solid #B8C2D3; border-radius
 select { min-width: 130px; font-family: var(--mono); }
 input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); font-family: var(--mono); }
 #form-cofre { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+.material { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-block: 12px; }
+.material a { color: var(--navy); font-weight: 700; }
 #integrantes { height: 40px; width: 340px; max-width: 100%; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); }
 .campo-nomes { flex: 1 1 260px; }
 .campo-nomes #integrantes { width: 100%; }
@@ -134,6 +137,13 @@ td.nulo { color: #8B95A5; font-style: italic; }
     <p id="msg-cofre" class="msg" hidden></p>
   </section>
 
+  <section id="material" class="cartao material" hidden>
+    <span class="rotulo">Material da aula</span>
+    <a href="POO_Aula10_Roteiro_de_Atividades_JDBC.pdf" target="_blank" rel="noopener">Roteiro de Atividades – JDBC (PDF)</a>
+    <button id="baixar" class="secundario" type="button">Baixar o projeto Java (zip)</button>
+    <span id="msg-material" class="dica"></span>
+  </section>
+
   <section id="entrada" class="cartao" aria-labelledby="titulo-entrada" hidden>
     <form id="form-entrada">
       <div class="campo">
@@ -180,8 +190,10 @@ td.nulo { color: #8B95A5; font-style: italic; }
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
 // As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'PqxVpOZiKnVdSuipR4Q8vw==', iv: '1yemH3Pxc9eSkB4B', iteracoes: 300000, dados: 'pcsxtGbzK0wk1LYlQOhZ/GLNvY3wtneMyGMpNO6xo2yUAVvf4xpWFMHurfO5a0Y8P/NT6jyoa9ieWYtWf8PQWhQF7eQRowjQYAgvNYwKZgLH6OBNnNczr2eziAZVUjPvKStzDHDwvkQ7dSCm1Qdi5lZ69vwsq/eLyJe7NSFX2MbtfNYxKjcd5PD8f63UYgwWK1HCxwfqjl3jJoASbgJs53zjY38y1rjj4yqf91M5bv5SoPyHCujwpqN+ZJZPgX3pLkzBb1MAxZqPgc7Tp6n0sAukEyyqUMVtIMbsHd5X6i1z5Iaq0vWU6F/MLLpGufllG2UNM5fHph6iVpuXDqrly5Oe+vyU1nqgaQ9sZifvR143ZRThODvFYW7SJmOXWeGf3mlcEOxlcZmzN0jKZ9+5m5ZVrCr1B/9v08EqR+LWGA99b4bAHhUb4ZR4gihGd+p5yXWy1Xt2SfMxw6MdepksqO8rCM1UvmBl9XnhOAAKcAKcR4wN5iVJaDFQQA==' };
+const COFRE = { sal: 'hx9vh+/YLObL9zJmsXcYvQ==', iv: 'SUEqnQp+4kCQO+qN', iteracoes: 300000, dados: 'q4Z7Q/YgdPsn1mZaqR12sqy4XCdAWnYwLJY7OSZyhrEaIrb/1sgbdNLClWYw6GzCY5w4tLaeRAiB8JuaVp4m6L8SoweAaltnIhLrae8s3NV8bOIOmrrBEed3wcoWdsD625tIDCRHqC39K0wxo+bPbUgnbIDuRCVG/xD6DJD9b5CtOfG4ILcEV46GwuwqqZ3PWVYJMKUrTYk8HSLNAuVXDiIhDH49iij+w9eddjYINH6tJtarDA6aAmvMV/pbKZMFaZ/g5OLcD7/HgzWkORvJbeWgEHod5fdibEJ7n9TAsXccTwXoErALzfc9/Lp1Gv8blh2LNHOLR2fpqfW7PeBoSYAeNIOL9Dd6SVzFI8DcFqLp9YY86HrinC5VbNOiFqrHBr9MXMckIVTam79sDDfw9NCQ0zH6mAe0wW4A7EmOpL0TVje+t7EVSOKLeQupkyZRQSPFtdrisjc8k4vkCU6PBC9e508dxPx2IesYBJZgBBdgTUuFClttjdxdCQ==' };
 let SENHAS = null;
+let FRASE = null;
+const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: '7SnXHOoKQoCjjzWgYvQ5+A==', iv: 'ZM6cKiWES24g0oUU', iteracoes: 300000 };
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrirCofre(frase) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
@@ -404,7 +416,9 @@ $('form-cofre').addEventListener('submit', async (ev) => {
   aviso.hidden = false;
   try {
     SENHAS = await abrirCofre(frase);
+    FRASE = frase;
     carregarDuplas();
+    $('material').hidden = false;
     $('cofre').hidden = true;
     $('entrada').hidden = false;
     $('usuario').focus();
@@ -413,6 +427,38 @@ $('form-cofre').addEventListener('submit', async (ev) => {
     aviso.textContent = window.crypto && crypto.subtle ? 'Chave de acesso incorreta.' : 'Este navegador não consegue abrir o cofre. Use o Chrome, o Edge ou o Firefox atualizados.';
   } finally {
     $('abrir').disabled = false;
+  }
+});
+
+// ---------------------------------------------------------------- projeto Java, aberto com a mesma chave
+$('baixar').addEventListener('click', async () => {
+  const b = $('baixar');
+  const texto = b.textContent;
+  b.disabled = true;
+  b.textContent = 'Preparando...';
+  $('msg-material').textContent = '';
+  try {
+    const r = await fetch(PACOTE.arquivo, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const cifrado = await r.arrayBuffer();
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(FRASE), 'PBKDF2', false, ['deriveKey']);
+    const chave = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: desB64(PACOTE.sal), iterations: PACOTE.iteracoes, hash: 'SHA-256' },
+      base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(PACOTE.iv) }, chave, cifrado);
+    const url = URL.createObjectURL(new Blob([claro], { type: 'application/zip' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = PACOTE.nome;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    $('msg-material').textContent = 'Descompactem o zip e abram a pasta no IntelliJ.';
+  } catch (e) {
+    $('msg-material').textContent = 'Não consegui baixar o projeto agora. Avisem o professor.';
+  } finally {
+    b.disabled = false;
+    b.textContent = texto;
   }
 });
 
