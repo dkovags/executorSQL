@@ -172,6 +172,16 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
       </div>
       <div class="acao">
         <div>
+          <h3>Recriar a tabela aluno</h3>
+          <p class="meta">Apaga a tabela <code>aluno</code> de cada dupla em uso, se existir, com as linhas que tiver, e cria de novo, vazia e no formato original, com as permissões e o registro de operações. As outras tabelas das duplas não mudam.</p>
+        </div>
+        <div class="controles">
+          <button id="recriar-aluno-btn" class="btn perigo" type="button" data-texto="Recriar tabela aluno">Recriar tabela aluno</button>
+          <button class="btn cancelar" type="button" hidden>Cancelar</button>
+        </div>
+      </div>
+      <div class="acao">
+        <div>
           <h3>Apagar todos os registros</h3>
           <p class="meta">Esvazia todas as tabelas de todas as duplas e apaga os comandos, as linhas gravadas e os nomes dos integrantes. As tabelas continuam existindo.</p>
         </div>
@@ -262,7 +272,7 @@ window.claude = {
           }
           let r;
           try {
-            const acao = ['painel', 'definir_duplas', 'apagar_tabelas', 'apagar_registros'].includes(entrada.acao) ? entrada.acao : 'painel';
+            const acao = ['painel', 'definir_duplas', 'recriar_aluno', 'apagar_tabelas', 'apagar_registros'].includes(entrada.acao) ? entrada.acao : 'painel';
             const corpoPedido = acao === 'painel' ? (entrada.dupla ? { p_dupla: entrada.dupla } : {}) : (entrada.args || {});
             r = await fetch(`${DATA_API}/rpc/${acao}`, {
               method: 'POST',
@@ -575,6 +585,11 @@ function confirmavel(botao, executar) {
     finally { botao.disabled = false; }
   });
 }
+
+confirmavel($('recriar-aluno-btn'), async () => {
+  const r = await executarAdmin('recriar_aluno', {}, 'SELECT professor.admin_recriar_aluno() AS r');
+  return `Tabela aluno recriada, vazia, nas ${r.duplas} duplas em uso${r.substituidas < r.duplas ? ` (${r.duplas - r.substituidas} não tinham a tabela)` : ''}.`;
+});
 
 confirmavel($('apagar-registros'), async () => {
   const r = await executarAdmin('apagar_registros', {}, 'SELECT professor.admin_apagar_registros() AS r');
