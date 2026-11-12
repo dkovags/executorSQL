@@ -190,10 +190,10 @@ td.nulo { color: #8B95A5; font-style: italic; }
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
 // As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'hx9vh+/YLObL9zJmsXcYvQ==', iv: 'SUEqnQp+4kCQO+qN', iteracoes: 300000, dados: 'q4Z7Q/YgdPsn1mZaqR12sqy4XCdAWnYwLJY7OSZyhrEaIrb/1sgbdNLClWYw6GzCY5w4tLaeRAiB8JuaVp4m6L8SoweAaltnIhLrae8s3NV8bOIOmrrBEed3wcoWdsD625tIDCRHqC39K0wxo+bPbUgnbIDuRCVG/xD6DJD9b5CtOfG4ILcEV46GwuwqqZ3PWVYJMKUrTYk8HSLNAuVXDiIhDH49iij+w9eddjYINH6tJtarDA6aAmvMV/pbKZMFaZ/g5OLcD7/HgzWkORvJbeWgEHod5fdibEJ7n9TAsXccTwXoErALzfc9/Lp1Gv8blh2LNHOLR2fpqfW7PeBoSYAeNIOL9Dd6SVzFI8DcFqLp9YY86HrinC5VbNOiFqrHBr9MXMckIVTam79sDDfw9NCQ0zH6mAe0wW4A7EmOpL0TVje+t7EVSOKLeQupkyZRQSPFtdrisjc8k4vkCU6PBC9e508dxPx2IesYBJZgBBdgTUuFClttjdxdCQ==' };
+const COFRE = { sal: 'PcfKB4wZSogERDbMbKQUEQ==', iv: 'mzxEP6zIXxWBzKDa', iteracoes: 300000, dados: 'ae0ydUV8ww7VijbdHvMcW9x1yShuxyUbRwtOlnIRKprjPSAEJopg5pWVbUrnLIMvbTN3EThd5hASm72guoKezk5XyOS0r1QQwVXj2lG7fflvR2RixTwLFFsJJkkWtchbXbCkSyaj9vOz6nr3CltXG+WQBx8yfOh1Zv5WsRhD+rozGhHRzHsYyPQCZsOl3Asg6mcZn2V+ehgFRVpTvfNhloLaCwfGq6yvsOEp/0NiIs6JwqoAnBq1gLrQ6H6rf54j3ClHg5Krun383NB+7ZM4UnXGgeCBQwOMEvnEFUoIZNErCm+2AGuEoHx3BIUbIL3xOT6kd2md3JAU1tlXBXSjv9AysHPAORW9o0BPwhnjgn/ndfPymLL8wbXpA93dhxD4lr90yX1KSYF7SHZnZTEhgR/xapNoRWoYkAd+x8X3Y/Mwx4IJkmbudWkZsxODOLZWyUjOkwtOpStnUJJkPl3kOZLEqShye5sTq0Ei0q4KNFUR4uLzl7PGFmYm0Q==' };
 let SENHAS = null;
 let FRASE = null;
-const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: '7SnXHOoKQoCjjzWgYvQ5+A==', iv: 'ZM6cKiWES24g0oUU', iteracoes: 300000 };
+const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'DilKDETIxQSs6XJ/zu4DPw==', iv: 'fO0jkAZWwQFEH9o8', iteracoes: 300000 };
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrirCofre(frase) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
