@@ -31,6 +31,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { background: var(--bg); color: var(--fg); font: 16px/1.45 var(--sans); }
 button, input { font: inherit; color: inherit; }
 code, pre { font-family: var(--mono); }
@@ -65,6 +66,9 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 18px 48px; display: gri
 .card-dupla .linha b.erro { color: var(--err); }
 .card-dupla .nomes { font-size: 13.5px; color: var(--fg); margin: -2px 0 4px; overflow-wrap: anywhere; }
 .card-dupla .quando { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.card-dupla .usuario { margin: -2px 0 4px; font: 12.5px/1.3 var(--mono); color: var(--muted); }
+.grupos-barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.grupos-barra .sub { margin: 0; }
 .card-todas h3 { font-size: 17px; }
 
 .painel { background: var(--card); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
@@ -114,6 +118,10 @@ tr:nth-child(even) td { background: var(--code-bg); }
 button.btn.perigo { color: var(--err); border-color: var(--err); }
 button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
 #admin-msg { margin-top: 12px; }
+.turma-grade { flex: 1 1 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; margin-top: 2px; }
+.vaga { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.vaga span { flex: none; width: 60px; font: 13px/1 var(--mono); color: var(--muted); }
+.vaga input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); }
 .entrar { padding: 18px 16px 20px; display: grid; gap: 10px; justify-items: start; }
 .entrar h2 { margin: 0; font: 700 20px/1.2 var(--serif); color: var(--navy); }
 @media (max-width: 520px) { h1 { font-size: 24px; } .filtros input[type=search] { width: 100%; } }
@@ -126,7 +134,7 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
   <div class="topo-in">
     <div>
       <h1>Painel do Professor</h1>
-      <p class="sub">Tabelas e comandos de cada dupla, direto do banco da turma.</p>
+      <p class="sub">Tabelas e comandos de cada aluno, direto do banco da turma.</p>
     </div>
     <div class="barra">
       <span id="quem" class="chip">Sem identificação</span>
@@ -145,8 +153,11 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
     <p id="login-msg" class="sub" hidden></p>
   </section>
   <p id="aviso" class="aviso info" hidden></p>
-  <p id="atualizado" class="sub" hidden></p>
-  <section id="grade" class="grade" aria-label="Duplas" hidden></section>
+  <div class="grupos-barra">
+    <div class="abas" role="tablist" id="grupos" aria-label="Grupo"></div>
+    <p id="atualizado" class="sub" hidden></p>
+  </div>
+  <section id="grade" class="grade" aria-label="Ambientes" hidden></section>
   <section id="detalhe" class="painel" hidden>
     <div class="painel-cab">
       <div class="abas" role="tablist" id="abas"></div>
@@ -158,12 +169,23 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
     <div id="corpo" class="corpo"></div>
   </section>
   <section id="admin" class="painel admin" aria-labelledby="titulo-admin" hidden>
-    <div class="painel-cab"><h2 id="titulo-admin">Administração do banco</h2></div>
+    <div class="painel-cab"><h2 id="titulo-admin">Administração do banco · <span id="titulo-grupo">alunos</span></h2></div>
     <div class="admin-corpo">
-      <div class="acao">
+      <div class="acao" id="acao-turma">
+        <div>
+          <h3>Turma</h3>
+          <p class="meta">Um nome por vaga. A vaga com nome entra na lista do Executor de SQL e ganha a tabela <code>aluno</code> vazia; apagar o nome tira o acesso, mas o schema e as tabelas daquela vaga ficam. Cada vaga é um schema: trocar o nome de vaga leva o novo aluno para as tabelas que já estão nela.</p>
+        </div>
+        <div class="controles">
+          <button id="salvar-turma" class="btn" type="button">Salvar turma</button>
+          <button id="desfazer-turma" class="btn" type="button" hidden>Desfazer</button>
+        </div>
+        <div id="turma-grade" class="turma-grade"></div>
+      </div>
+      <div class="acao" id="acao-qtd">
         <div>
           <h3>Quantidade de duplas</h3>
-          <p class="meta">De 1 a 12. As duplas acima da quantidade ficam sem acesso ao banco e somem da lista do Executor de SQL. Uma dupla nova já recebe a tabela <code>aluno</code> vazia.</p>
+          <p class="meta">De 1 a 12, para o projeto Java da Aula 10. As duplas acima da quantidade ficam sem acesso ao banco. Uma dupla nova já recebe a tabela <code>aluno</code> vazia.</p>
         </div>
         <div class="controles">
           <input id="qtd" type="number" min="1" max="12" step="1" value="6" aria-label="Quantidade de duplas">
@@ -173,7 +195,7 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
       <div class="acao">
         <div>
           <h3>Recriar a tabela aluno</h3>
-          <p class="meta">Apaga a tabela <code>aluno</code> de cada dupla em uso, se existir, com as linhas que tiver, e cria de novo, vazia e no formato original, com as permissões e o registro de operações. As outras tabelas das duplas não mudam.</p>
+          <p class="meta" id="meta-recriar"></p>
         </div>
         <div class="controles">
           <button id="recriar-aluno-btn" class="btn perigo" type="button" data-texto="Recriar tabela aluno">Recriar tabela aluno</button>
@@ -183,7 +205,7 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
       <div class="acao">
         <div>
           <h3>Apagar todos os registros</h3>
-          <p class="meta">Esvazia todas as tabelas de todas as duplas e apaga os comandos, as linhas gravadas e os nomes dos integrantes. As tabelas continuam existindo.</p>
+          <p class="meta" id="meta-registros"></p>
         </div>
         <div class="controles">
           <button id="apagar-registros" class="btn perigo" type="button" data-texto="Apagar registros">Apagar registros</button>
@@ -193,8 +215,8 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
       <div class="acao">
         <div>
           <h3>Apagar todas as tabelas</h3>
-          <p class="meta">Apaga todas as tabelas de todos os schemas das duplas, com as linhas que tiverem.</p>
-          <label class="meta marcar"><input id="recriar-aluno" type="checkbox" checked> Recriar a tabela <code>aluno</code> vazia em cada dupla (o laboratório Java precisa dela)</label>
+          <p class="meta" id="meta-tabelas"></p>
+          <label class="meta marcar"><input id="recriar-aluno" type="checkbox" checked> <span id="rotulo-recriar"></span></label>
         </div>
         <div class="controles">
           <button id="apagar-tabelas" class="btn perigo" type="button" data-texto="Apagar tabelas">Apagar tabelas</button>
@@ -272,8 +294,8 @@ window.claude = {
           }
           let r;
           try {
-            const acao = ['painel', 'definir_duplas', 'recriar_aluno', 'apagar_tabelas', 'apagar_registros'].includes(entrada.acao) ? entrada.acao : 'painel';
-            const corpoPedido = acao === 'painel' ? (entrada.dupla ? { p_dupla: entrada.dupla } : {}) : (entrada.args || {});
+            const acao = ['painel', 'definir_turma', 'definir_duplas', 'recriar_aluno', 'apagar_tabelas', 'apagar_registros'].includes(entrada.acao) ? entrada.acao : 'painel';
+            const corpoPedido = entrada.args || {};
             r = await fetch(`${DATA_API}/rpc/${acao}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` },
@@ -305,10 +327,38 @@ const PROJETO = 'ancient-glade-79142947';
 const BRANCH = 'br-rapid-sun-b65zteaa';
 const BANCO = 'escola';
 const EMAIL_PROFESSOR = 'kovags@gmail.com';
-const DUPLAS = ['dupla1', 'dupla2', 'dupla3', 'dupla4', 'dupla5', 'dupla6'];
 
 const $ = (id) => document.getElementById(id);
-const estado = { visao: 'todas', aba: 'comandos', dados: null, ocupado: false, mcp: null, soErros: false, busca: '', depois: false };
+const estado = { grupo: 'alunos', visao: 'todas', aba: 'comandos', dados: null, ocupado: false, mcp: null, soErros: false, busca: '', turmaEditada: false };
+const VAGAS = 15;
+
+// Textos que mudam com o grupo: os alunos (Executor de SQL, um schema por aluno) e as duplas (projeto Java)
+const GRUPOS = {
+  alunos: {
+    aba: 'Alunos', todos: 'Todos os alunos', um: 'um aluno', vazio: 'Nenhum aluno cadastrado. Preencha a turma na administração, logo abaixo.',
+    recriar: 'Apaga a tabela <code>aluno</code> de cada aluno da turma, se existir, com as linhas que tiver, e cria de novo, vazia e no formato original, com as permissões e o registro de operações. As outras tabelas dos alunos não mudam.',
+    registros: 'Esvazia todas as tabelas de todos os alunos e apaga os comandos e as linhas gravadas por eles. As tabelas e os nomes da turma continuam.',
+    tabelas: 'Apaga todas as tabelas de todos os schemas dos alunos, com as linhas que tiverem.',
+    rotulo: 'Recriar a tabela <code>aluno</code> vazia para cada aluno da turma',
+  },
+  duplas: {
+    aba: 'Duplas (Java)', todos: 'Todas as duplas', um: 'uma dupla', vazio: 'Nenhuma dupla em uso.',
+    recriar: 'Apaga a tabela <code>aluno</code> de cada dupla em uso, se existir, com as linhas que tiver, e cria de novo, vazia e no formato original, com as permissões e o registro de operações. As outras tabelas das duplas não mudam.',
+    registros: 'Esvazia todas as tabelas de todas as duplas e apaga os comandos, as linhas gravadas e os nomes dos integrantes. As tabelas continuam existindo.',
+    tabelas: 'Apaga todas as tabelas de todos os schemas das duplas, com as linhas que tiverem.',
+    rotulo: 'Recriar a tabela <code>aluno</code> vazia em cada dupla (o laboratório Java precisa dela)',
+  },
+};
+// Nome para mostrar: o do aluno cadastrado ou "Dupla N"
+function rotulo(ambiente) {
+  if (!ambiente) return '';
+  if (ambiente.startsWith('dupla')) return ambiente.replace('dupla', 'Dupla ');
+  const r = (estado.dados && estado.dados.resumo || []).find((d) => d.ambiente === ambiente);
+  if (r && r.nome) return r.nome;
+  const v = (estado.dados && estado.dados.turma || []).find((t) => t.usuario === ambiente);
+  return (v && v.nome) || ambiente;
+}
+const sql = (v) => (v === null || v === undefined ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`);
 let temporizador = null;
 
 function el(tag, classe, texto) {
@@ -340,7 +390,7 @@ function textoDoErro(e) {
   if (c === 'needs_reauth') return `O login foi recusado ou expirou${e.message ? ` (${e.message})` : ''}. Entre de novo com o botão acima.`;
   if (c === 'not_granted') return `O banco recusou o acesso: ${(e.message || '').replace(/^acesso negado: /, '')}. Clique em Sair e entre com a conta do professor.`;
   const m = (e && e.message) || String(e);
-  if (/painel_dados|professor\.comandos/.test(m)) return 'O banco ainda não tem o registro de comandos. Rode banco/registro_de_comandos.sql e banco/painel_do_professor.sql no SQL Editor do Neon.';
+  if (/painel_dados|professor\.comandos|padrao_grupo|ambientes\(/.test(m)) return `O banco não tem a versão do painel por aluno. Rode banco/alunos_individuais.sql no SQL Editor do Neon. (${m})`;
   return `Não consegui ler o banco: ${m}`;
 }
 
@@ -352,10 +402,11 @@ async function carregar() {
   if (estado.ocupado || !estado.mcp || !estado.permitido) return;
   estado.ocupado = true;
   $('atualizar').disabled = true;
-  const alvo = estado.visao === 'todas' ? 'NULL' : `'${estado.visao}'`;
+  const alvo = estado.visao === 'todas' ? null : estado.visao;
+  const args = alvo ? { p_alvo: alvo, p_grupo: estado.grupo } : { p_grupo: estado.grupo };
   try {
     const r = await estado.mcp.callTool('Neon', 'run_sql',
-      montarEntrada(`SELECT professor.painel_dados(${alvo}, 300) AS dados`, { acao: 'painel', dupla: estado.visao === 'todas' ? null : estado.visao }),
+      montarEntrada(`SELECT professor.painel_dados(${sql(alvo)}, 300, ${sql(estado.grupo)}) AS dados`, { acao: 'painel', args }),
       { cache: false });
     let p = r.payload;
     if (typeof p === 'string') p = JSON.parse(p);
@@ -384,15 +435,28 @@ function agendar() {
 }
 
 // ---------------------------------------------------------------- desenho
+function desenharGrupos() {
+  const caixa = $('grupos');
+  caixa.replaceChildren(...Object.entries(GRUPOS).map(([id, g]) => {
+    const b = el('button', 'aba', g.aba);
+    b.type = 'button';
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(estado.grupo === id));
+    b.addEventListener('click', () => trocarGrupo(id));
+    return b;
+  }));
+}
+
 function desenharGrade() {
   const g = $('grade');
+  const G = GRUPOS[estado.grupo];
   const resumo = estado.dados.resumo || [];
   const total = resumo.reduce((a, d) => ({ c: a.c + d.comandos, e: a.e + d.erros }), { c: 0, e: 0 });
   const cartoes = [];
   const todas = el('button', 'card-dupla card-todas');
   todas.type = 'button';
   todas.setAttribute('aria-pressed', String(estado.visao === 'todas'));
-  todas.append(el('h3', '', 'Todas as duplas'));
+  todas.append(el('h3', '', G.todos));
   const l1 = el('div', 'linha'); l1.append(el('span', '', 'comandos'), el('b', '', String(total.c)));
   const l2 = el('div', 'linha'); l2.append(el('span', '', 'com erro'), el('b', total.e ? 'erro' : '', String(total.e)));
   todas.append(l1, l2);
@@ -401,16 +465,19 @@ function desenharGrade() {
   resumo.forEach((d) => {
     const b = el('button', 'card-dupla');
     b.type = 'button';
-    b.setAttribute('aria-pressed', String(estado.visao === d.dupla));
-    b.append(el('h3', '', d.dupla.replace('dupla', 'Dupla ')));
-    b.append(el('div', 'nomes', d.integrantes || 'integrantes não informados'));
-    const a = el('div', 'linha'); a.append(el('span', '', 'alunos'), el('b', '', String(d.alunos)));
+    b.setAttribute('aria-pressed', String(estado.visao === d.ambiente));
+    if (estado.grupo === 'alunos') {
+      b.append(el('h3', '', d.nome || d.ambiente), el('div', 'usuario', d.ambiente));
+    } else {
+      b.append(el('h3', '', rotulo(d.ambiente)), el('div', 'nomes', d.nome || 'integrantes não informados'));
+    }
+    const a = el('div', 'linha'); a.append(el('span', '', 'linhas em aluno'), el('b', '', d.alunos === null ? 'sem tabela' : String(d.alunos)));
     const c = el('div', 'linha'); c.append(el('span', '', 'comandos'), el('b', '', String(d.comandos)));
     const e = el('div', 'linha'); e.append(el('span', '', 'com erro'), el('b', d.erros ? 'erro' : '', String(d.erros)));
     const t = el('div', 'linha'); t.append(el('span', '', 'tabelas'), el('b', '', String(d.tabelas)));
     const ult = [d.ultimo_comando, d.ultima_operacao].filter(Boolean).sort().pop();
     b.append(a, c, e, t, el('div', 'quando', `última atividade: ${haQuanto(ult)}`));
-    b.addEventListener('click', () => escolher(d.dupla));
+    b.addEventListener('click', () => escolher(d.ambiente));
     cartoes.push(b);
   });
   g.replaceChildren(...cartoes);
@@ -435,16 +502,16 @@ function desenharComandos(corpo) {
   const termo = estado.busca.trim().toLowerCase();
   const lista = (estado.dados.comandos || []).filter((c) => (!estado.soErros || !c.ok) && (!termo || c.comando.toLowerCase().includes(termo)));
   if (!lista.length) {
-    corpo.append(el('p', 'vazio', estado.dados.comandos.length ? 'Nenhum comando com esse filtro.' : 'Nenhum comando registrado ainda. Eles aparecem aqui assim que as duplas executarem algo no Executor de SQL.'));
+    corpo.append(el('p', 'vazio', estado.dados.comandos.length ? 'Nenhum comando com esse filtro.' : 'Nenhum comando registrado ainda. Eles aparecem aqui assim que alguém executar algo no Executor de SQL.'));
     return;
   }
   lista.forEach((c) => {
     const item = el('div', 'cmd');
     const cab = el('div', 'cmd-cab');
     cab.append(el('span', '', hora(c.quando)));
-    if (estado.visao === 'todas') cab.append(el('span', 'tag', c.dupla.replace('dupla', 'Dupla ')));
-    if (c.integrantes) cab.append(el('span', '', c.integrantes));
-    cab.append(c.ok ? el('span', 'tag ok', c.linhas === null || c.linhas === undefined ? 'executado' : `${c.linhas} ${Number(c.linhas) === 1 ? 'linha' : 'linhas'}`) : el('span', 'tag erro', 'erro'));
+    if (estado.visao === 'todas') cab.append(el('span', 'tag', rotulo(c.ambiente)));
+    if (c.integrantes && estado.grupo === 'duplas') cab.append(el('span', '', c.integrantes));
+    cab.append(c.ok ? el('span', 'tag ok', c.linhas === null || c.linhas === undefined || Number(c.linhas) < 0 ? 'executado' : `${c.linhas} ${Number(c.linhas) === 1 ? 'linha' : 'linhas'}`) : el('span', 'tag erro', 'erro'));
     item.append(cab, el('pre', '', c.comando));
     if (!c.ok && c.erro) item.append(el('p', 'msg-erro', c.erro));
     corpo.append(item);
@@ -473,11 +540,11 @@ function tabelaDeLinhas(colunas, linhas) {
 
 function desenharTabelas(corpo) {
   if (estado.visao === 'todas') {
-    corpo.append(el('p', 'vazio', 'Escolha uma dupla acima para ver as tabelas, as colunas e as linhas dela.'));
+    corpo.append(el('p', 'vazio', `Escolha ${GRUPOS[estado.grupo].um} acima para ver as tabelas, as colunas e as linhas.`));
     return;
   }
   const tabs = estado.dados.tabelas || [];
-  if (!tabs.length) { corpo.append(el('p', 'vazio', 'Esta dupla não tem tabelas.')); return; }
+  if (!tabs.length) { corpo.append(el('p', 'vazio', 'Nenhuma tabela neste schema.')); return; }
   tabs.forEach((t) => {
     const bloco = el('div', 'tab-bloco');
     bloco.append(el('h3', '', `${estado.visao}.${t.nome}`));
@@ -502,15 +569,49 @@ function desenharOperacoes(corpo) {
   nota.style.padding = '8px 16px 0';
   corpo.append(nota);
   if (!ops.length) { corpo.append(el('p', 'vazio', 'Nenhuma linha gravada ainda.')); return; }
-  const linhas = ops.map((o) => ({ horario: hora(o.quando), dupla: o.dupla, operacao: o.operacao, matricula: o.matricula, nome: o.nome }));
-  const cols = estado.visao === 'todas' ? ['horario', 'dupla', 'operacao', 'matricula', 'nome'] : ['horario', 'operacao', 'matricula', 'nome'];
+  const linhas = ops.map((o) => ({ horario: hora(o.quando), quem: rotulo(o.ambiente), operacao: o.operacao, matricula: o.matricula, nome: o.nome }));
+  const cols = estado.visao === 'todas' ? ['horario', 'quem', 'operacao', 'matricula', 'nome'] : ['horario', 'operacao', 'matricula', 'nome'];
   const caixa = el('div', 'tab-bloco');
   caixa.append(tabelaDeLinhas(cols, linhas));
   corpo.append(caixa);
 }
 
+function desenharAdmin() {
+  const G = GRUPOS[estado.grupo];
+  $('titulo-grupo').textContent = estado.grupo === 'alunos' ? 'alunos' : 'duplas';
+  $('acao-turma').hidden = estado.grupo !== 'alunos';
+  $('acao-qtd').hidden = estado.grupo !== 'duplas';
+  $('meta-recriar').innerHTML = G.recriar;
+  $('meta-registros').innerHTML = G.registros;
+  $('meta-tabelas').innerHTML = G.tabelas;
+  $('rotulo-recriar').innerHTML = G.rotulo;
+  if (document.activeElement !== $('qtd') && estado.dados.qtd_duplas) $('qtd').value = estado.dados.qtd_duplas;
+  const grade = $('turma-grade');
+  if (!grade.children.length) {
+    for (let k = 1; k <= VAGAS; k += 1) {
+      const u = `aluno${String(k).padStart(2, '0')}`;
+      const linha = el('label', 'vaga');
+      const campo = el('input');
+      campo.type = 'text';
+      campo.maxLength = 100;
+      campo.autocomplete = 'off';
+      campo.dataset.vaga = String(k);
+      campo.setAttribute('aria-label', `Nome do aluno na vaga ${u}`);
+      campo.addEventListener('input', () => { estado.turmaEditada = true; $('desfazer-turma').hidden = false; });
+      linha.append(el('span', '', u), campo);
+      grade.append(linha);
+    }
+  }
+  if (!estado.turmaEditada) {
+    const nomes = new Map((estado.dados.turma || []).map((t) => [Number(t.n), t.nome || '']));
+    grade.querySelectorAll('input').forEach((c) => { c.value = nomes.get(Number(c.dataset.vaga)) || ''; });
+    $('desfazer-turma').hidden = true;
+  }
+}
+
 function desenhar() {
   if (!estado.dados) return;
+  desenharGrupos();
   desenharGrade();
   desenharAbas();
   const corpo = $('corpo');
@@ -518,9 +619,19 @@ function desenhar() {
   if (estado.aba === 'comandos') desenharComandos(corpo);
   else if (estado.aba === 'tabelas') desenharTabelas(corpo);
   else desenharOperacoes(corpo);
+  if (!(estado.dados.resumo || []).length) corpo.prepend(el('p', 'vazio', GRUPOS[estado.grupo].vazio));
   $('detalhe').hidden = false;
   $('admin').hidden = false;
-  if (document.activeElement !== $('qtd') && estado.dados.qtd_duplas) $('qtd').value = estado.dados.qtd_duplas;
+  desenharAdmin();
+}
+
+function trocarGrupo(grupo) {
+  if (estado.grupo === grupo) return;
+  estado.grupo = grupo;
+  estado.visao = 'todas';
+  if (estado.aba === 'tabelas') estado.aba = 'comandos';
+  adminMsg('');
+  carregar().then(agendar);
 }
 
 function escolher(visao) {
@@ -556,7 +667,7 @@ $('salvar-qtd').addEventListener('click', async () => {
   try {
     const r = await executarAdmin('definir_duplas', { p_n: n }, `SELECT professor.admin_definir_duplas(${n}) AS r`);
     adminMsg(`Pronto: ${r.qtd_duplas} duplas em uso.`);
-    if (estado.visao !== 'todas' && Number(estado.visao.replace('dupla', '')) > n) estado.visao = 'todas';
+    if (estado.visao.startsWith('dupla') && Number(estado.visao.replace('dupla', '')) > n) estado.visao = 'todas';
     await carregar();
   } catch (e) {
     adminMsg(textoDoErro(e), true);
@@ -564,6 +675,27 @@ $('salvar-qtd').addEventListener('click', async () => {
     $('salvar-qtd').disabled = false;
   }
 });
+
+$('salvar-turma').addEventListener('click', async () => {
+  const nomes = [...$('turma-grade').querySelectorAll('input')].map((c) => c.value.trim().replace(/\s+/g, ' '));
+  const cheios = nomes.filter(Boolean);
+  const repetido = cheios.find((x, i) => cheios.findIndex((y) => y.toLowerCase() === x.toLowerCase()) !== i);
+  if (repetido) { adminMsg(`O nome "${repetido}" aparece em duas vagas. Use sobrenome ou inicial para diferenciar.`, true); return; }
+  $('salvar-turma').disabled = true;
+  adminMsg('Salvando a turma...');
+  try {
+    const r = await executarAdmin('definir_turma', { p_nomes: nomes }, `SELECT professor.admin_definir_turma(ARRAY[${nomes.map(sql).join(', ')}]::text[]) AS r`);
+    estado.turmaEditada = false;
+    adminMsg(`Turma salva: ${r.alunos} ${r.alunos === 1 ? 'aluno' : 'alunos'} com acesso ao Executor de SQL.`);
+    if (estado.visao.startsWith('aluno') && !nomes[Number(estado.visao.slice(5)) - 1]) estado.visao = 'todas';
+    await carregar();
+  } catch (e) {
+    adminMsg(textoDoErro(e), true);
+  } finally {
+    $('salvar-turma').disabled = false;
+  }
+});
+$('desfazer-turma').addEventListener('click', () => { estado.turmaEditada = false; desenharAdmin(); adminMsg(''); });
 
 // Ação perigosa: o primeiro clique pede confirmação, o segundo executa
 function confirmavel(botao, executar) {
@@ -586,20 +718,27 @@ function confirmavel(botao, executar) {
   });
 }
 
+const quem = (n) => (estado.grupo === 'alunos' ? `${n} ${n === 1 ? 'aluno' : 'alunos'}` : `${n} ${n === 1 ? 'dupla' : 'duplas'}`);
+
 confirmavel($('recriar-aluno-btn'), async () => {
-  const r = await executarAdmin('recriar_aluno', {}, 'SELECT professor.admin_recriar_aluno() AS r');
-  return `Tabela aluno recriada, vazia, nas ${r.duplas} duplas em uso${r.substituidas < r.duplas ? ` (${r.duplas - r.substituidas} não tinham a tabela)` : ''}.`;
+  const g = estado.grupo;
+  const r = await executarAdmin('recriar_aluno', { p_grupo: g }, `SELECT professor.admin_recriar_aluno(${sql(g)}) AS r`);
+  return `Tabela aluno recriada, vazia, para ${quem(r.ambientes)}${r.substituidas < r.ambientes ? ` (${r.ambientes - r.substituidas} ainda não tinham a tabela)` : ''}.`;
 });
 
 confirmavel($('apagar-registros'), async () => {
-  const r = await executarAdmin('apagar_registros', {}, 'SELECT professor.admin_apagar_registros() AS r');
-  return `Registros apagados: ${r.tabelas_esvaziadas} tabelas esvaziadas, comandos, linhas gravadas e integrantes zerados.`;
+  const g = estado.grupo;
+  const r = await executarAdmin('apagar_registros', { p_grupo: g }, `SELECT professor.admin_apagar_registros(${sql(g)}) AS r`);
+  return g === 'alunos'
+    ? `Registros dos alunos apagados: ${r.tabelas_esvaziadas} tabelas esvaziadas, comandos e linhas gravadas zerados. A turma continua cadastrada.`
+    : `Registros das duplas apagados: ${r.tabelas_esvaziadas} tabelas esvaziadas, comandos, linhas gravadas e integrantes zerados.`;
 });
 
 confirmavel($('apagar-tabelas'), async () => {
+  const g = estado.grupo;
   const recriar = $('recriar-aluno').checked === true;
-  const r = await executarAdmin('apagar_tabelas', { p_recriar_aluno: recriar }, `SELECT professor.admin_apagar_tabelas(${recriar ? 'true' : 'false'}) AS r`);
-  return `Tabelas apagadas: ${r.tabelas_apagadas}.${r.aluno_recriada ? ' A tabela aluno foi recriada, vazia, em cada dupla em uso.' : ' Nenhuma tabela foi recriada.'}`;
+  const r = await executarAdmin('apagar_tabelas', { p_recriar_aluno: recriar, p_grupo: g }, `SELECT professor.admin_apagar_tabelas(${recriar ? 'true' : 'false'}, ${sql(g)}) AS r`);
+  return `Tabelas apagadas: ${r.tabelas_apagadas}.${r.aluno_recriada ? ` A tabela aluno foi recriada, vazia, ${g === 'alunos' ? 'para cada aluno da turma' : 'em cada dupla em uso'}.` : ' Nenhuma tabela foi recriada.'}`;
 });
 
 // ---------------------------------------------------------------- início

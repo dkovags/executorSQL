@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Executor de SQL</title>
 <style>
-/* Ferramenta de sala: faixa azul da IBMEC, tabelas e colunas da dupla na lateral, editor e histórico (o mais recente em cima) */
+/* Ferramenta de sala: faixa azul da IBMEC, tabelas e colunas do aluno na lateral, editor e histórico (o mais recente em cima) */
 :root {
   --navy: #0F2B5B; --navy-escuro: #0A1F42; --ouro: #F2A900; --ouro-txt: #8A5F00;
   --tinta: #1B2432; --cinza: #5A6472; --painel: #F3F5F9; --linha: #D8DEE8; --branco: #FFFFFF;
@@ -62,14 +62,12 @@ main { display: grid; gap: 18px; min-width: 0; }
 .campo { display: grid; gap: 4px; }
 label, .rotulo { font-size: 14px; font-weight: 700; color: var(--navy); }
 select { height: 40px; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); }
-select { min-width: 130px; font-family: var(--mono); }
+select { min-width: 260px; max-width: 100%; }
 input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); font-family: var(--mono); }
 #form-cofre { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
 .material { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-block: 12px; }
 .material a { color: var(--navy); font-weight: 700; }
-#integrantes { height: 40px; width: 340px; max-width: 100%; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); }
-.campo-nomes { flex: 1 1 260px; }
-.campo-nomes #integrantes { width: 100%; }
+select:disabled { color: var(--cinza); background: var(--painel); }
 button { height: 40px; padding: 0 18px; border: 0; border-radius: 4px; background: var(--navy); color: var(--branco); font-weight: 700; cursor: pointer; }
 button:hover { background: var(--navy-escuro); }
 button:disabled { background: #8B95A5; cursor: wait; }
@@ -121,9 +119,9 @@ td.nulo { color: #8B95A5; font-style: italic; }
 </header>
 
 <div class="corpo">
-<aside id="lateral" class="lateral" aria-label="Tabelas da dupla">
+<aside id="lateral" class="lateral" aria-label="Tabelas do aluno">
   <h2>Tabelas</h2>
-  <p class="vazio">Escolha a dupla e clique em Entrar para ver as tabelas e as colunas.</p>
+  <p class="vazio">Escolha seu nome e clique em Entrar para ver as tabelas e as colunas.</p>
 </aside>
 <main>
   <section id="cofre" class="cartao" aria-labelledby="titulo-cofre">
@@ -146,15 +144,10 @@ td.nulo { color: #8B95A5; font-style: italic; }
   <section id="entrada" class="cartao" aria-labelledby="titulo-entrada" hidden>
     <form id="form-entrada">
       <div class="campo">
-        <label id="titulo-entrada" for="usuario">Dupla</label>
-        <select id="usuario">
-          <option>dupla1</option><option>dupla2</option><option>dupla3</option>
-          <option>dupla4</option><option>dupla5</option><option>dupla6</option>
+        <label id="titulo-entrada" for="usuario">Aluno</label>
+        <select id="usuario" disabled>
+          <option value="">Carregando a turma...</option>
         </select>
-      </div>
-      <div class="campo campo-nomes">
-        <label for="integrantes">Integrantes da dupla</label>
-        <input id="integrantes" type="text" autocomplete="off" maxlength="200" placeholder="Ex.: Ana Souza e Bruno Lima">
       </div>
       <button id="entrar" type="submit">Entrar</button>
     </form>
@@ -164,7 +157,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
   <section id="trabalho" class="cartao" hidden>
     <div class="cab-editor">
       <label for="sql" class="rotulo">Comandos SQL</label>
-      <button id="trocar" class="secundario" type="button">Trocar de dupla</button>
+      <button id="trocar" class="secundario" type="button">Trocar de aluno</button>
     </div>
     <textarea id="sql" spellcheck="false"></textarea>
     <div class="acoes">
@@ -179,20 +172,21 @@ td.nulo { color: #8B95A5; font-style: italic; }
 <aside id="exemplos" class="lateral" aria-label="Exemplos de comandos">
   <h2>Exemplos</h2>
   <div id="lista-ex"></div>
-  <p class="nota-ex">Clique num exemplo para levá-lo ao editor e troque <code>tabela</code>, <code>nome_campo</code>, <code>valor</code> e <code>tipo</code> pelos nomes e tipos da lista à esquerda. Em <code>aluno</code> a dupla só consulta e grava linhas; criar, alterar e apagar tabelas vale para tabelas criadas pela própria dupla.</p>
+  <p class="nota-ex">Clique num exemplo para levá-lo ao editor e troque <code>tabela</code>, <code>nome_campo</code>, <code>valor</code> e <code>tipo</code> pelos nomes e tipos da lista à esquerda. Na tabela <code>aluno</code> você consulta e grava linhas; criar, alterar e apagar tabelas vale para as tabelas que você mesmo criar.</p>
 </aside>
 </div>
 
 <script>
-// Conversa com o Neon pela web (porta 443), com o usuário da dupla escolhida.
+// Conversa com o Neon pela web (porta 443), com o usuário do aluno escolhido: cada aluno tem um usuário e um
+// schema próprios (aluno01 a aluno15). A lista de nomes vem do banco, lida com o usuário turma.
 // Cada comando vai sozinho e é gravado na hora, como no Java.
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
-// As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'gMYmcLTbcfNVZCP//z2Zqw==', iv: 'SSl0T5snU4jedOyI', iteracoes: 300000, dados: '1/RxOrm/bIRFG4y7q+OBcUNfSowLYh7FzMRgYxqwPTroAq/l7i/RlFlr7I20mKqGaLETbDZQBhjDHvPRh5hbQYEM4/aQJGqVFQa6pyLcfPuZ+Eb+CY5u9DgIGTbBlq6XVgXA1byt2W0fpEA44O8tbbJ3KfEee/gX6qacPfX5UA2JMJo/aX1+5ulFp3w7k9nhjoQAbNLygWUNtYcrSEBMJgWsDSLFcdR3bDo4AZu9JmLhc8GcsAxCLwbHN/bY02l64l4xdd++5qzpYxP6Rl6WbuNWUmi/p+/1ANMV6bGzb0FwT59S2y0FfsY7HgDo2wfxPq8GH2w0miDNWgZuh2jBd3y7Wr5qieaE/H/Ymjwj3/WXD3ouODJHNFBmNwtkuGAo4e9zt8OBMcTNmMT8878Zp5u3K52K/CLeX2lacXJ0WaDnR5UqATzOIv1FQ0IPAYy2Cf55QNz/hP5252bZWQkUZ8K/Jg6ctH3/e3ptrf633KKt+AuqYo9dkG9egg==' };
+// As senhas dos alunos estão criptografadas aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
+const COFRE = { sal: 'NO8JP2mOnbepZwpYto3GXA==', iv: 'FK0EOBJddh6pkdES', iteracoes: 300000, dados: 'pt6MJCGY7pNo90GHBk0IyFOX692iKCub8cS3gm8LuiYYbRqed5DfFDNnQLJn1B+JtD7C7GHjjaF5pimMbtC2FhrVwaX1b5mxEJYlHExbMGfJ3THE07SFwCtwF9smTVX+NlDZKy3e/WYdBWmmCuEY8IAyFdPq5RTfWIkR44/tkIIvuaee1siVvPY2AlZD8BJSLkM5/CkxFGyIJfsYc1KahF/ByEGuwBok8Dcgo0pW/SX3SlqogZsks4CP9mSHtZOf5eLkMC1ORHKBJX37Z7T+LAZmfvCgZ7YGS32S/VWcMOtz/kxXt3269qW+pzEVhAYR264vpnQ+czLfNAhgwibObulbfqwk2+7vvY4w7VeLCaIfDTrb3ORiIW/6+hDuN9NLc6OEqXJxdiKXGIzxvx8C3bty+LV3oAU/pQ2X99+rrrLhuRb76/RqAuv5EyYDl+x6enVL5iQlUAC6XEfoAveygP3OB+EOx5MWJhWv+tJGSfIUCuJul90cv7LgYwLS5yFoxJ47lmWfcNqWPeJcTmTLhbSATlioXsUXtiU7qqRd9ACagdz49m4+qV2QgIpbJFDMdI1DpRBhKHTNBrUOBGssZXKLw1kHJmsSUp4BrG8PhnaPeAajPtc/JUkXzBX52qgLzQAelJdRmuaDJsZOZjZU9XjGgXUz07Ila36Ql5adN5V27KFRZYeKmxSC/9dhYs03Sc/yvBYFoZj2hB9PjIqR6jPjeMncZDS+3aa4QQ57Vz4BycqjoR8wJ2mzVGErOA==' };
 let SENHAS = null;
 let FRASE = null;
-const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'eFBdpTz5s3I/ljFzSAzK0w==', iv: 'uvMYEX2MjxuJrhG7', iteracoes: 300000 };
+const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'in6ABqiREMRHqW6AIz7VNA==', iv: '6L2jfYCOWgQlAgYA', iteracoes: 300000 };
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrirCofre(frase) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
@@ -201,7 +195,7 @@ async function abrirCofre(frase) {
   const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(COFRE.iv) }, chave, desB64(COFRE.dados));
   return JSON.parse(new TextDecoder().decode(claro));
 }
-const estado = { usuario: null, senha: null, ocupado: false, integrantes: '' };
+const estado = { usuario: null, senha: null, nome: '', ocupado: false };
 const $ = (id) => document.getElementById(id);
 
 // divide o texto em comandos pelo ";", sem cortar dentro de aspas nem de comentários
@@ -276,22 +270,22 @@ async function consultar(query, usuario, senha, params = []) {
 
 // explicação curta para as mensagens mais comuns do laboratório
 function explicar(msg) {
-  if (/not permitted to log in/.test(msg)) return 'Esta dupla não está ativa agora. Escolham outra ou avisem o professor.';
-  if (/password authentication failed/.test(msg)) return 'Usuário ou senha recusados pelo banco. Avisem o professor.';
-  if (/syntax error at or near/.test(msg)) return 'Erro de digitação no SQL, perto da palavra indicada. Confiram vírgulas, aspas e parênteses.';
+  if (/not permitted to log in/.test(msg)) return 'Este nome não está ativo no banco agora. Avise o professor.';
+  if (/password authentication failed/.test(msg)) return 'Usuário ou senha recusados pelo banco. Avise o professor.';
+  if (/syntax error at or near/.test(msg)) return 'Erro de digitação no SQL, perto da palavra indicada. Confira vírgulas, aspas e parênteses.';
   if (/violates not-null constraint/.test(msg)) return 'Faltou o valor de uma coluna obrigatória (NOT NULL).';
   if (/duplicate key value violates unique constraint/.test(msg)) return 'Essa matrícula já está na tabela. A chave primária não aceita repetição.';
-  if (/relation ".*" does not exist/.test(msg)) return 'Nome de tabela errado. Confiram o nome na lista da esquerda.';
+  if (/relation ".*" does not exist/.test(msg)) return 'Nome de tabela errado. Confira o nome na lista da esquerda.';
   if (/column ".*" .*does not exist/.test(msg)) return 'Nome de coluna errado: as colunas são matricula, nome, nota1 e nota2.';
-  if (/must be owner of table aluno/.test(msg)) return 'A tabela aluno é do professor: a dupla consulta e grava linhas nela, mas não altera nem apaga a tabela. Para CREATE, ALTER e DROP, usem uma tabela própria, como disciplina.';
+  if (/must be owner of table aluno/.test(msg)) return 'A tabela aluno é do professor: você consulta e grava linhas nela, mas não altera nem apaga a tabela. Para CREATE, ALTER e DROP, use uma tabela própria, como disciplina.';
   if (/must be owner/.test(msg)) return 'Só o dono da tabela pode alterá-la ou apagá-la.';
-  if (/permission denied/.test(msg)) return 'A dupla só trabalha no próprio schema. Escrevam o nome da tabela sem prefixo.';
+  if (/permission denied/.test(msg)) return 'Cada aluno só trabalha no próprio schema. Escreva o nome da tabela sem prefixo.';
   if (/unterminated quoted string/.test(msg)) return 'Falta fechar uma aspa simples.';
   return '';
 }
 
 function textoErro(e) {
-  if (e && e.rede) return { msg: 'Não foi possível falar com o banco.', detalhe: '', dica: 'Confiram a internet do computador. Se continuar, chamem o professor.' };
+  if (e && e.rede) return { msg: 'Não foi possível falar com o banco.', detalhe: '', dica: 'Confira a internet do computador. Se continuar, chame o professor.' };
   const msg = (e && e.message) ? e.message : String(e);
   return { msg: `ERROR: ${msg}`, detalhe: (e && e.detail) ? `Detalhe: ${e.detail}` : '', dica: explicar(msg) };
 }
@@ -354,7 +348,7 @@ function nomeDoTipo(tipo, tam, prec, esc) {
 async function atualizarLateral() {
   const lateral = $('lateral');
   if (!estado.usuario) {
-    lateral.replaceChildren(el('h2', '', 'Tabelas'), el('p', 'vazio', 'Escolha a dupla e clique em Entrar para ver as tabelas e as colunas.'));
+    lateral.replaceChildren(el('h2', '', 'Tabelas'), el('p', 'vazio', 'Escolha seu nome e clique em Entrar para ver as tabelas e as colunas.'));
     return;
   }
   try {
@@ -387,21 +381,36 @@ async function atualizarLateral() {
   }
 }
 
-try { $('integrantes').value = localStorage.getItem('integrantes') || ''; } catch (e) { /* sem armazenamento */ }
-
-// A lista de duplas segue a quantidade definida pelo professor (a dupla 1 sempre existe)
-async function carregarDuplas() {
+// A lista vem do cadastro da turma no banco (Painel do Professor), em ordem alfabética
+async function carregarAlunos() {
   const sel = $('usuario');
-  let n = 6;
+  const aviso = $('msg-entrada');
+  const opcao = (texto, valor) => { const o = el('option', '', texto); o.value = valor; return o; };
+  sel.disabled = true;
+  sel.replaceChildren(opcao('Carregando a turma...', ''));
+  let lista = null;
   try {
-    const r = await consultar('SELECT professor.qtd_duplas()', 'dupla1', SENHAS.dupla1);
-    n = Number(r.rows[0][0]) || 6;
-  } catch (e) { /* fica com 6 */ }
-  const atual = sel.value;
-  sel.replaceChildren(...Array.from({ length: n }, (_, i) => el('option', '', `dupla${i + 1}`)));
-  if ([...sel.options].some((o) => o.value === atual)) sel.value = atual;
+    const r = await consultar('SELECT usuario, nome FROM professor.turma_alunos()', 'turma', SENHAS.turma);
+    lista = r.rows.map(([usuario, nome]) => ({ usuario, nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  } catch (e) { lista = null; }
+  if (!lista || !lista.length) {
+    sel.replaceChildren(opcao(lista ? 'Turma sem nomes' : 'Turma indisponível', ''));
+    aviso.className = 'msg';
+    aviso.textContent = lista ? 'A turma ainda não foi cadastrada no banco. Avise o professor.' : 'Não consegui ler a lista da turma. Confira a internet e recarregue a página.';
+    aviso.hidden = false;
+    return;
+  }
+  const primeira = opcao('Escolha seu nome', '');
+  primeira.disabled = true;
+  sel.replaceChildren(primeira, ...lista.map((a) => opcao(a.nome, a.usuario)));
+  sel.value = '';
+  sel.disabled = false;
+  if (aviso.textContent.startsWith('Não consegui ler a lista') || aviso.textContent.startsWith('A turma ainda')) aviso.hidden = true;
 }
-if (SENHAS) carregarDuplas();
+if (SENHAS) carregarAlunos();
+$('usuario').addEventListener('change', () => {
+  if ($('msg-entrada').textContent === 'Escolha seu nome na lista.') $('msg-entrada').hidden = true;
+});
 
 // ---------------------------------------------------------------- cofre
 $('form-cofre').addEventListener('submit', async (ev) => {
@@ -416,7 +425,7 @@ $('form-cofre').addEventListener('submit', async (ev) => {
   try {
     SENHAS = await abrirCofre(frase);
     FRASE = frase;
-    carregarDuplas();
+    carregarAlunos();
     $('material').hidden = false;
     $('cofre').hidden = true;
     $('entrada').hidden = false;
@@ -464,9 +473,17 @@ $('baixar').addEventListener('click', async () => {
 // ---------------------------------------------------------------- entrada
 $('form-entrada').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  const usuario = $('usuario').value;
+  const sel = $('usuario');
+  const usuario = sel.value;
   const senha = SENHAS[usuario];
   const aviso = $('msg-entrada');
+  if (!usuario || !senha) {
+    aviso.className = 'msg';
+    aviso.textContent = 'Escolha seu nome na lista.';
+    aviso.hidden = false;
+    sel.focus();
+    return;
+  }
   $('entrar').disabled = true;
   aviso.className = 'msg info';
   aviso.textContent = 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.';
@@ -475,10 +492,8 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     const r = await consultar('SELECT current_user', usuario, senha);
     estado.usuario = r.rows[0][0];
     estado.senha = senha;
-    estado.integrantes = $('integrantes').value.trim().replace(/\s+/g, ' ');
-    try { localStorage.setItem('integrantes', estado.integrantes); } catch (e) { /* sem armazenamento */ }
-    if (estado.integrantes) consultar('SELECT professor.registrar_integrantes($1)', estado.usuario, estado.senha, [estado.integrantes]).catch(() => {});
-    $('status').textContent = estado.integrantes ? `${estado.usuario} conectada · ${estado.integrantes}` : `${estado.usuario} conectada`;
+    estado.nome = sel.options[sel.selectedIndex].textContent;
+    $('status').textContent = `${estado.nome} · ${estado.usuario}`;
     $('status').classList.add('ligado');
     $('entrada').hidden = true;
     $('trabalho').hidden = false;
@@ -499,6 +514,8 @@ $('form-entrada').addEventListener('submit', async (ev) => {
 $('trocar').addEventListener('click', () => {
   estado.usuario = null;
   estado.senha = null;
+  estado.nome = '';
+  $('usuario').value = '';
   $('status').textContent = 'Sem conexão';
   $('status').classList.remove('ligado');
   $('trabalho').hidden = true;
@@ -547,10 +564,11 @@ function mostrarErro(bloco, e) {
 }
 
 // Cada comando digitado é anotado no registro do professor. A função do banco grava o nome do usuário
-// que fez a chamada, e a página não espera a resposta: se a anotação falhar, o aluno nem percebe.
+// que fez a chamada (e a página manda junto o nome escolhido na lista); a página não espera a resposta:
+// se a anotação falhar, o aluno nem percebe.
 function registrar(comando, ok, erro, linhas) {
   consultar('SELECT professor.registrar_comando($1, $2, $3, $4, $5)', estado.usuario, estado.senha,
-    [`${comando};`, ok, erro, linhas, estado.integrantes || null]).catch(() => {});
+    [`${comando};`, ok, erro, linhas, estado.nome || null]).catch(() => {});
 }
 
 async function executar() {
@@ -571,7 +589,7 @@ async function executar() {
   if (vazio) vazio.remove();
   const grupo = el('div', 'grupo');
   const hora = new Date().toLocaleTimeString('pt-BR');
-  grupo.append(el('p', 'grupo-cab', `${hora} · ${comandos.length} ${comandos.length === 1 ? 'comando' : 'comandos'} · ${estado.usuario}${estado.integrantes ? ` (${estado.integrantes})` : ''}`));
+  grupo.append(el('p', 'grupo-cab', `${hora} · ${comandos.length} ${comandos.length === 1 ? 'comando' : 'comandos'} · ${estado.nome}`));
   hist.prepend(grupo);
 
   const comErro = [];
@@ -589,7 +607,8 @@ async function executar() {
     try {
       const r = await consultar(c, estado.usuario, estado.senha);
       mostrarResultado(bloco, r);
-      registrar(c, true, null, r.rowCount ?? r.rows.length);
+      const linhas = r.fields && r.fields.length ? r.rows.length : (['INSERT', 'UPDATE', 'DELETE'].includes(r.command) ? r.rowCount : null);
+      registrar(c, true, null, linhas);
     } catch (e) {
       mostrarErro(bloco, e);
       comErro.push(`${c};`);
