@@ -174,9 +174,10 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
       <div class="acao" id="acao-turma">
         <div>
           <h3>Turma</h3>
-          <p class="meta">Um nome por vaga. A vaga com nome entra na lista do Executor de SQL e ganha a tabela <code>aluno</code> vazia; apagar o nome tira o acesso, mas o schema e as tabelas daquela vaga ficam. Cada vaga é um schema: trocar o nome de vaga leva o novo aluno para as tabelas que já estão nela.</p>
+          <p class="meta">Um nome por vaga, quantas vagas forem preciso. Ao salvar, cada vaga com nome ganha usuário e schema próprios, se ainda não tiver, entra na lista do Executor de SQL e recebe a tabela <code>aluno</code> vazia; apagar o nome tira o acesso, mas o schema e as tabelas daquela vaga ficam. Cada vaga é um schema: trocar o nome de vaga leva o novo aluno para as tabelas que já estão nela.</p>
         </div>
         <div class="controles">
+          <button id="mais-vaga" class="btn" type="button">Adicionar vaga</button>
           <button id="salvar-turma" class="btn" type="button">Salvar turma</button>
           <button id="desfazer-turma" class="btn" type="button" hidden>Desfazer</button>
         </div>
@@ -330,7 +331,6 @@ const EMAIL_PROFESSOR = 'kovags@gmail.com';
 
 const $ = (id) => document.getElementById(id);
 const estado = { grupo: 'alunos', visao: 'todas', aba: 'comandos', dados: null, ocupado: false, mcp: null, soErros: false, busca: '', turmaEditada: false };
-const VAGAS = 15;
 
 // Textos que mudam com o grupo: os alunos (Executor de SQL, um schema por aluno) e as duplas (projeto Java)
 const GRUPOS = {
@@ -586,27 +586,27 @@ function desenharAdmin() {
   $('meta-tabelas').innerHTML = G.tabelas;
   $('rotulo-recriar').innerHTML = G.rotulo;
   if (document.activeElement !== $('qtd') && estado.dados.qtd_duplas) $('qtd').value = estado.dados.qtd_duplas;
-  const grade = $('turma-grade');
-  if (!grade.children.length) {
-    for (let k = 1; k <= VAGAS; k += 1) {
-      const u = `aluno${String(k).padStart(2, '0')}`;
-      const linha = el('label', 'vaga');
-      const campo = el('input');
-      campo.type = 'text';
-      campo.maxLength = 100;
-      campo.autocomplete = 'off';
-      campo.dataset.vaga = String(k);
-      campo.setAttribute('aria-label', `Nome do aluno na vaga ${u}`);
-      campo.addEventListener('input', () => { estado.turmaEditada = true; $('desfazer-turma').hidden = false; });
-      linha.append(el('span', '', u), campo);
-      grade.append(linha);
-    }
-  }
   if (!estado.turmaEditada) {
-    const nomes = new Map((estado.dados.turma || []).map((t) => [Number(t.n), t.nome || '']));
-    grade.querySelectorAll('input').forEach((c) => { c.value = nomes.get(Number(c.dataset.vaga)) || ''; });
+    const vagas = estado.dados.turma || [];
+    $('turma-grade').replaceChildren(...vagas.map((t) => linhaDeVaga(Number(t.n), t.nome || '')));
     $('desfazer-turma').hidden = true;
   }
+}
+
+// Uma linha do cadastro: o usuário da vaga (aluno01, aluno02, ...) e o nome do aluno
+function linhaDeVaga(k, nome) {
+  const u = `aluno${String(k).padStart(2, '0')}`;
+  const linha = el('label', 'vaga');
+  const campo = el('input');
+  campo.type = 'text';
+  campo.maxLength = 100;
+  campo.autocomplete = 'off';
+  campo.value = nome;
+  campo.dataset.vaga = String(k);
+  campo.setAttribute('aria-label', `Nome do aluno na vaga ${u}`);
+  campo.addEventListener('input', () => { estado.turmaEditada = true; $('desfazer-turma').hidden = false; });
+  linha.append(el('span', '', u), campo);
+  return linha;
 }
 
 function desenhar() {
@@ -677,7 +677,10 @@ $('salvar-qtd').addEventListener('click', async () => {
 });
 
 $('salvar-turma').addEventListener('click', async () => {
-  const nomes = [...$('turma-grade').querySelectorAll('input')].map((c) => c.value.trim().replace(/\s+/g, ' '));
+  const campos = [...$('turma-grade').querySelectorAll('input')].sort((a, b) => Number(a.dataset.vaga) - Number(b.dataset.vaga));
+  const nomes = [];
+  campos.forEach((c) => { nomes[Number(c.dataset.vaga) - 1] = c.value.trim().replace(/\s+/g, ' '); });
+  for (let i = 0; i < nomes.length; i += 1) if (nomes[i] === undefined) nomes[i] = '';
   const cheios = nomes.filter(Boolean);
   const repetido = cheios.find((x, i) => cheios.findIndex((y) => y.toLowerCase() === x.toLowerCase()) !== i);
   if (repetido) { adminMsg(`O nome "${repetido}" aparece em duas vagas. Use sobrenome ou inicial para diferenciar.`, true); return; }
@@ -686,7 +689,7 @@ $('salvar-turma').addEventListener('click', async () => {
   try {
     const r = await executarAdmin('definir_turma', { p_nomes: nomes }, `SELECT professor.admin_definir_turma(ARRAY[${nomes.map(sql).join(', ')}]::text[]) AS r`);
     estado.turmaEditada = false;
-    adminMsg(`Turma salva: ${r.alunos} ${r.alunos === 1 ? 'aluno' : 'alunos'} com acesso ao Executor de SQL.`);
+    adminMsg(`Turma salva: ${r.alunos} ${r.alunos === 1 ? 'aluno' : 'alunos'} com acesso ao Executor de SQL${r.criados ? ` (${r.criados} ${r.criados === 1 ? 'vaga nova criada' : 'vagas novas criadas'}, com usuário e schema)` : ''}.`);
     if (estado.visao.startsWith('aluno') && !nomes[Number(estado.visao.slice(5)) - 1]) estado.visao = 'todas';
     await carregar();
   } catch (e) {
@@ -696,6 +699,15 @@ $('salvar-turma').addEventListener('click', async () => {
   }
 });
 $('desfazer-turma').addEventListener('click', () => { estado.turmaEditada = false; desenharAdmin(); adminMsg(''); });
+$('mais-vaga').addEventListener('click', () => {
+  const grade = $('turma-grade');
+  const ultimo = Math.max(0, ...[...grade.querySelectorAll('input')].map((c) => Number(c.dataset.vaga)));
+  const linha = linhaDeVaga(ultimo + 1, '');
+  grade.append(linha);
+  estado.turmaEditada = true;
+  $('desfazer-turma').hidden = false;
+  linha.querySelector('input').focus();
+});
 
 // Ação perigosa: o primeiro clique pede confirmação, o segundo executa
 function confirmavel(botao, executar) {

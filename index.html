@@ -68,6 +68,14 @@ input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 1
 .material { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-block: 12px; }
 .material a { color: var(--navy); font-weight: 700; }
 select:disabled { color: var(--cinza); background: var(--painel); }
+#chave-prof { height: 40px; width: 230px; max-width: 100%; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); font-family: var(--mono); }
+.outros { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--linha); }
+.outros .esq { margin: 10px 0 4px; font-size: 14px; color: var(--tinta); }
+.outros .esq code { color: var(--cinza); font-size: 12.5px; margin-left: 6px; }
+.outros ul { margin: 0; padding: 0 0 0 10px; list-style: none; border-left: 2px solid var(--linha); }
+.outros li button { height: auto; padding: 2px 0; background: transparent; color: var(--navy); font: 400 13.5px/1.5 var(--mono); text-align: left; border-radius: 0; }
+.outros li button:hover { background: transparent; text-decoration: underline; }
+.outros .sem { color: var(--cinza); font-size: 13px; }
 button { height: 40px; padding: 0 18px; border: 0; border-radius: 4px; background: var(--navy); color: var(--branco); font-weight: 700; cursor: pointer; }
 button:hover { background: var(--navy-escuro); }
 button:disabled { background: #8B95A5; cursor: wait; }
@@ -149,6 +157,10 @@ td.nulo { color: #8B95A5; font-style: italic; }
           <option value="">Carregando a turma...</option>
         </select>
       </div>
+      <div class="campo" id="campo-prof" hidden>
+        <label for="chave-prof">Chave do professor</label>
+        <input id="chave-prof" type="password" autocomplete="off" spellcheck="false">
+      </div>
       <button id="entrar" type="submit">Entrar</button>
     </form>
     <p id="msg-entrada" class="msg" hidden></p>
@@ -180,20 +192,30 @@ td.nulo { color: #8B95A5; font-style: italic; }
 // Conversa com o Neon pela web (porta 443), com o usuário do aluno escolhido: cada aluno tem um usuário e um
 // schema próprios (aluno01 a aluno15). A lista de nomes vem do banco, lida com o usuário turma.
 // Cada comando vai sozinho e é gravado na hora, como no Java.
+// As senhas ficam aqui dentro, de propósito, para ninguém precisar digitar. É um banco de aula.
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
-// As senhas dos alunos estão criptografadas aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'NO8JP2mOnbepZwpYto3GXA==', iv: 'FK0EOBJddh6pkdES', iteracoes: 300000, dados: 'pt6MJCGY7pNo90GHBk0IyFOX692iKCub8cS3gm8LuiYYbRqed5DfFDNnQLJn1B+JtD7C7GHjjaF5pimMbtC2FhrVwaX1b5mxEJYlHExbMGfJ3THE07SFwCtwF9smTVX+NlDZKy3e/WYdBWmmCuEY8IAyFdPq5RTfWIkR44/tkIIvuaee1siVvPY2AlZD8BJSLkM5/CkxFGyIJfsYc1KahF/ByEGuwBok8Dcgo0pW/SX3SlqogZsks4CP9mSHtZOf5eLkMC1ORHKBJX37Z7T+LAZmfvCgZ7YGS32S/VWcMOtz/kxXt3269qW+pzEVhAYR264vpnQ+czLfNAhgwibObulbfqwk2+7vvY4w7VeLCaIfDTrb3ORiIW/6+hDuN9NLc6OEqXJxdiKXGIzxvx8C3bty+LV3oAU/pQ2X99+rrrLhuRb76/RqAuv5EyYDl+x6enVL5iQlUAC6XEfoAveygP3OB+EOx5MWJhWv+tJGSfIUCuJul90cv7LgYwLS5yFoxJ47lmWfcNqWPeJcTmTLhbSATlioXsUXtiU7qqRd9ACagdz49m4+qV2QgIpbJFDMdI1DpRBhKHTNBrUOBGssZXKLw1kHJmsSUp4BrG8PhnaPeAajPtc/JUkXzBX52qgLzQAelJdRmuaDJsZOZjZU9XjGgXUz07Ila36Ql5adN5V27KFRZYeKmxSC/9dhYs03Sc/yvBYFoZj2hB9PjIqR6jPjeMncZDS+3aa4QQ57Vz4BycqjoR8wJ2mzVGErOA==' };
-let SENHAS = null;
+// A senha de cada usuário sai do segredo da turma, o mesmo gravado no banco (professor.config):
+// 'npg_' + 20 caracteres do SHA-256 de "segredo:usuario" em base64 + 'Q7'. Assim um aluno novo, cadastrado no
+// Painel do Professor, já entra sem que a página precise ser gerada de novo.
+// O segredo está criptografado aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
+const COFRE = { sal: '5W0FPy9zZMFdfIhnSgKotw==', iv: 'tyTAGxUI2E0oiN6R', iteracoes: 300000, dados: 'rt/wIXHAd3hdnxKgWg4/pdUbMtRafvasb0MIdhHyvTXpnWYSDysys58cazZkdA1rZ2bWqKBMuw56U9LFPlAV' };
+let SEGREDO = null;
 let FRASE = null;
-const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'in6ABqiREMRHqW6AIz7VNA==', iv: '6L2jfYCOWgQlAgYA', iteracoes: 300000 };
+const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'c3jll7QWWjjN4JlQbfqf3A==', iv: 'Acm616eLj5HvRB9Q', iteracoes: 300000 };
+// O usuário docente (o professor) tem senha própria, cifrada com a chave do professor (AES-GCM).
+const COFRE_PROF = { sal: 'sSDnrMCGMEpKzTviAD5TnQ==', iv: 'KYeaY0EboGciVM0S', iteracoes: 300000, dados: 'RIrYRNM/uByUwBZoxHBAL3o+g1c6H+3t+0aBt9uTPFzdnj8lMd7qJrTBXMyHYuN9X21UWaauyA==' };
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-async function abrirCofre(frase) {
+async function abrir(cofre, frase) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
-  const chave = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: desB64(COFRE.sal), iterations: COFRE.iteracoes, hash: 'SHA-256' },
+  const chave = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: desB64(cofre.sal), iterations: cofre.iteracoes, hash: 'SHA-256' },
     base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-  const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(COFRE.iv) }, chave, desB64(COFRE.dados));
+  const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(cofre.iv) }, chave, desB64(cofre.dados));
   return JSON.parse(new TextDecoder().decode(claro));
+}
+async function senhaDe(usuario) {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${SEGREDO}:${usuario}`)));
+  return `npg_${btoa(String.fromCharCode(...d)).replace(/[+/=]/g, '').slice(0, 20)}Q7`;
 }
 const estado = { usuario: null, senha: null, nome: '', ocupado: false };
 const $ = (id) => document.getElementById(id);
@@ -277,6 +299,7 @@ function explicar(msg) {
   if (/duplicate key value violates unique constraint/.test(msg)) return 'Essa matrícula já está na tabela. A chave primária não aceita repetição.';
   if (/relation ".*" does not exist/.test(msg)) return 'Nome de tabela errado. Confira o nome na lista da esquerda.';
   if (/column ".*" .*does not exist/.test(msg)) return 'Nome de coluna errado: as colunas são matricula, nome, nota1 e nota2.';
+  if (estado.usuario === 'docente' && /permission denied for table|must be owner/.test(msg)) return 'O professor lê os schemas dos alunos e das duplas, mas só grava no schema docente. A tabela aluno de cada schema se recria pela administração do painel.';
   if (/must be owner of table aluno/.test(msg)) return 'A tabela aluno é do professor: você consulta e grava linhas nela, mas não altera nem apaga a tabela. Para CREATE, ALTER e DROP, use uma tabela própria, como disciplina.';
   if (/must be owner/.test(msg)) return 'Só o dono da tabela pode alterá-la ou apagá-la.';
   if (/permission denied/.test(msg)) return 'Cada aluno só trabalha no próprio schema. Escreva o nome da tabela sem prefixo.';
@@ -345,6 +368,55 @@ function nomeDoTipo(tipo, tam, prec, esc) {
   return tipo;
 }
 
+// Para o professor: os schemas dos alunos da turma e das duplas em uso, com as tabelas de cada um.
+// Clicar numa tabela leva um SELECT dela ao editor.
+const SQL_OUTROS = `SELECT s.esquema, s.rotulo, c.relname FROM (
+  SELECT 'aluno' || lpad(t.n::text, 2, '0') AS esquema, t.nome AS rotulo, 1 AS grupo, t.n AS ordem FROM professor.turma t
+  UNION ALL
+  SELECT 'dupla' || k, 'Dupla ' || k, 2, k FROM generate_series(1, (SELECT qtd_duplas FROM professor.config WHERE id = 1)) AS k
+) s
+LEFT JOIN pg_namespace n ON n.nspname = s.esquema
+LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind = 'r'
+ORDER BY s.grupo, s.ordem, c.relname`;
+
+async function outrosSchemas() {
+  const caixa = el('div', 'outros');
+  caixa.append(el('h2', '', 'Schemas da turma'));
+  try {
+    const r = await consultar(SQL_OUTROS, estado.usuario, estado.senha);
+    const grupos = new Map();
+    r.rows.forEach(([esq, rotulo, tab]) => {
+      if (!grupos.has(esq)) grupos.set(esq, { rotulo, tabs: [] });
+      if (tab) grupos.get(esq).tabs.push(tab);
+    });
+    const ordenados = [...grupos.entries()].sort((a, b) => (a[0].startsWith('dupla') - b[0].startsWith('dupla')) || (a[0].startsWith('aluno') ? a[1].rotulo.localeCompare(b[1].rotulo, 'pt-BR') : 0));
+    ordenados.forEach(([esq, g]) => {
+      const t = el('p', 'esq', g.rotulo);
+      t.append(el('code', '', esq));
+      const ul = el('ul');
+      if (!g.tabs.length) ul.append(el('li', 'sem', 'nenhuma tabela'));
+      g.tabs.forEach((tab) => {
+        const b = el('button', '', `${esq}.${tab}`);
+        b.type = 'button';
+        b.title = 'Clique para levar um SELECT desta tabela ao editor';
+        b.addEventListener('click', () => {
+          const ed = $('sql');
+          const atual = ed.value.replace(/\s+$/, '');
+          ed.value = (atual ? `${atual}\n` : '') + `SELECT * FROM ${esq}.${tab};`;
+          ed.focus();
+        });
+        const li = el('li');
+        li.append(b);
+        ul.append(li);
+      });
+      caixa.append(t, ul);
+    });
+  } catch (e) {
+    caixa.append(el('p', 'vazio', 'Não consegui ler os schemas da turma agora.'));
+  }
+  return caixa;
+}
+
 async function atualizarLateral() {
   const lateral = $('lateral');
   if (!estado.usuario) {
@@ -375,13 +447,14 @@ async function atualizarLateral() {
       li.append(nome, el('span', 'tipo', t));
       lista.append(li);
     });
+    if (estado.usuario === 'docente') novo.push(await outrosSchemas());
     lateral.replaceChildren(...novo);
   } catch (e) {
     lateral.replaceChildren(el('h2', '', 'Tabelas'), el('p', 'vazio', 'Não consegui ler as tabelas agora.'));
   }
 }
 
-// A lista vem do cadastro da turma no banco (Painel do Professor), em ordem alfabética
+// A lista vem do cadastro da turma no banco (Painel do Professor), em ordem alfabética, e termina no professor
 async function carregarAlunos() {
   const sel = $('usuario');
   const aviso = $('msg-entrada');
@@ -390,26 +463,41 @@ async function carregarAlunos() {
   sel.replaceChildren(opcao('Carregando a turma...', ''));
   let lista = null;
   try {
-    const r = await consultar('SELECT usuario, nome FROM professor.turma_alunos()', 'turma', SENHAS.turma);
+    const r = await consultar('SELECT usuario, nome FROM professor.turma_alunos()', 'turma', await senhaDe('turma'));
     lista = r.rows.map(([usuario, nome]) => ({ usuario, nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   } catch (e) { lista = null; }
-  if (!lista || !lista.length) {
-    sel.replaceChildren(opcao(lista ? 'Turma sem nomes' : 'Turma indisponível', ''));
+  if (!lista) {
+    sel.replaceChildren(opcao('Turma indisponível', ''));
     aviso.className = 'msg';
-    aviso.textContent = lista ? 'A turma ainda não foi cadastrada no banco. Avise o professor.' : 'Não consegui ler a lista da turma. Confira a internet e recarregue a página.';
+    aviso.textContent = 'Não consegui ler a lista da turma. Confira a internet e recarregue a página.';
     aviso.hidden = false;
     return;
   }
   const primeira = opcao('Escolha seu nome', '');
   primeira.disabled = true;
-  sel.replaceChildren(primeira, ...lista.map((a) => opcao(a.nome, a.usuario)));
+  const turma = el('optgroup');
+  turma.label = 'Turma';
+  turma.append(...lista.map((a) => opcao(a.nome, a.usuario)));
+  const prof = el('optgroup');
+  prof.label = 'Professor';
+  prof.append(opcao('Professor', 'docente'));
+  sel.replaceChildren(primeira, ...(lista.length ? [turma] : []), prof);
   sel.value = '';
   sel.disabled = false;
-  if (aviso.textContent.startsWith('Não consegui ler a lista') || aviso.textContent.startsWith('A turma ainda')) aviso.hidden = true;
+  if (!lista.length) {
+    aviso.className = 'msg';
+    aviso.textContent = 'A turma ainda não foi cadastrada no banco. Avise o professor.';
+    aviso.hidden = false;
+  } else if (aviso.textContent.startsWith('Não consegui ler a lista') || aviso.textContent.startsWith('A turma ainda')) {
+    aviso.hidden = true;
+  }
 }
-if (SENHAS) carregarAlunos();
+if (SEGREDO) carregarAlunos();
 $('usuario').addEventListener('change', () => {
-  if ($('msg-entrada').textContent === 'Escolha seu nome na lista.') $('msg-entrada').hidden = true;
+  const prof = $('usuario').value === 'docente';
+  $('campo-prof').hidden = !prof;
+  if (prof) $('chave-prof').focus();
+  if (['Escolha seu nome na lista.', 'Digite a chave do professor.', 'Chave do professor incorreta.'].includes($('msg-entrada').textContent)) $('msg-entrada').hidden = true;
 });
 
 // ---------------------------------------------------------------- cofre
@@ -423,7 +511,7 @@ $('form-cofre').addEventListener('submit', async (ev) => {
   aviso.textContent = 'Abrindo...';
   aviso.hidden = false;
   try {
-    SENHAS = await abrirCofre(frase);
+    SEGREDO = (await abrir(COFRE, frase)).segredo;
     FRASE = frase;
     carregarAlunos();
     $('material').hidden = false;
@@ -475,14 +563,16 @@ $('form-entrada').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   const sel = $('usuario');
   const usuario = sel.value;
-  const senha = SENHAS[usuario];
   const aviso = $('msg-entrada');
-  if (!usuario || !senha) {
-    aviso.className = 'msg';
-    aviso.textContent = 'Escolha seu nome na lista.';
-    aviso.hidden = false;
-    sel.focus();
-    return;
+  const recusar = (texto, campo) => { aviso.className = 'msg'; aviso.textContent = texto; aviso.hidden = false; campo.focus(); };
+  if (!usuario) { recusar('Escolha seu nome na lista.', sel); return; }
+  let senha;
+  if (usuario === 'docente') {
+    const chave = $('chave-prof').value;
+    if (!chave) { recusar('Digite a chave do professor.', $('chave-prof')); return; }
+    try { senha = (await abrir(COFRE_PROF, chave)).docente; } catch (e) { recusar('Chave do professor incorreta.', $('chave-prof')); return; }
+  } else {
+    senha = await senhaDe(usuario);
   }
   $('entrar').disabled = true;
   aviso.className = 'msg info';
@@ -493,7 +583,9 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     estado.usuario = r.rows[0][0];
     estado.senha = senha;
     estado.nome = sel.options[sel.selectedIndex].textContent;
+    $('chave-prof').value = '';
     $('status').textContent = `${estado.nome} · ${estado.usuario}`;
+    $('trocar').textContent = estado.usuario === 'docente' ? 'Trocar de usuário' : 'Trocar de aluno';
     $('status').classList.add('ligado');
     $('entrada').hidden = true;
     $('trabalho').hidden = false;
@@ -516,6 +608,7 @@ $('trocar').addEventListener('click', () => {
   estado.senha = null;
   estado.nome = '';
   $('usuario').value = '';
+  $('campo-prof').hidden = true;
   $('status').textContent = 'Sem conexão';
   $('status').classList.remove('ligado');
   $('trabalho').hidden = true;
