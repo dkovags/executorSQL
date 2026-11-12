@@ -139,7 +139,6 @@ td.nulo { color: #8B95A5; font-style: italic; }
 
   <section id="material" class="cartao material" hidden>
     <span class="rotulo">Material da aula</span>
-    <a href="POO_Aula10_Roteiro_de_Atividades_JDBC.pdf" target="_blank" rel="noopener">Roteiro de Atividades – JDBC (PDF)</a>
     <button id="baixar" class="secundario" type="button">Baixar o projeto Java (zip)</button>
     <span id="msg-material" class="dica"></span>
   </section>
@@ -190,10 +189,10 @@ td.nulo { color: #8B95A5; font-style: italic; }
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
 // As senhas das duplas estão criptografadas aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'PcfKB4wZSogERDbMbKQUEQ==', iv: 'mzxEP6zIXxWBzKDa', iteracoes: 300000, dados: 'ae0ydUV8ww7VijbdHvMcW9x1yShuxyUbRwtOlnIRKprjPSAEJopg5pWVbUrnLIMvbTN3EThd5hASm72guoKezk5XyOS0r1QQwVXj2lG7fflvR2RixTwLFFsJJkkWtchbXbCkSyaj9vOz6nr3CltXG+WQBx8yfOh1Zv5WsRhD+rozGhHRzHsYyPQCZsOl3Asg6mcZn2V+ehgFRVpTvfNhloLaCwfGq6yvsOEp/0NiIs6JwqoAnBq1gLrQ6H6rf54j3ClHg5Krun383NB+7ZM4UnXGgeCBQwOMEvnEFUoIZNErCm+2AGuEoHx3BIUbIL3xOT6kd2md3JAU1tlXBXSjv9AysHPAORW9o0BPwhnjgn/ndfPymLL8wbXpA93dhxD4lr90yX1KSYF7SHZnZTEhgR/xapNoRWoYkAd+x8X3Y/Mwx4IJkmbudWkZsxODOLZWyUjOkwtOpStnUJJkPl3kOZLEqShye5sTq0Ei0q4KNFUR4uLzl7PGFmYm0Q==' };
+const COFRE = { sal: 'gMYmcLTbcfNVZCP//z2Zqw==', iv: 'SSl0T5snU4jedOyI', iteracoes: 300000, dados: '1/RxOrm/bIRFG4y7q+OBcUNfSowLYh7FzMRgYxqwPTroAq/l7i/RlFlr7I20mKqGaLETbDZQBhjDHvPRh5hbQYEM4/aQJGqVFQa6pyLcfPuZ+Eb+CY5u9DgIGTbBlq6XVgXA1byt2W0fpEA44O8tbbJ3KfEee/gX6qacPfX5UA2JMJo/aX1+5ulFp3w7k9nhjoQAbNLygWUNtYcrSEBMJgWsDSLFcdR3bDo4AZu9JmLhc8GcsAxCLwbHN/bY02l64l4xdd++5qzpYxP6Rl6WbuNWUmi/p+/1ANMV6bGzb0FwT59S2y0FfsY7HgDo2wfxPq8GH2w0miDNWgZuh2jBd3y7Wr5qieaE/H/Ymjwj3/WXD3ouODJHNFBmNwtkuGAo4e9zt8OBMcTNmMT8878Zp5u3K52K/CLeX2lacXJ0WaDnR5UqATzOIv1FQ0IPAYy2Cf55QNz/hP5252bZWQkUZ8K/Jg6ctH3/e3ptrf633KKt+AuqYo9dkG9egg==' };
 let SENHAS = null;
 let FRASE = null;
-const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'DilKDETIxQSs6XJ/zu4DPw==', iv: 'fO0jkAZWwQFEH9o8', iteracoes: 300000 };
+const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'eFBdpTz5s3I/ljFzSAzK0w==', iv: 'uvMYEX2MjxuJrhG7', iteracoes: 300000 };
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrirCofre(frase) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
@@ -453,7 +452,7 @@ $('baixar').addEventListener('click', async () => {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
-    $('msg-material').textContent = 'Descompactem o zip e abram a pasta no IntelliJ.';
+    $('msg-material').textContent = 'Descompactem o zip e abram a pasta no IntelliJ. O Roteiro de Atividades – JDBC está dentro do zip.';
   } catch (e) {
     $('msg-material').textContent = 'Não consegui baixar o projeto agora. Avisem o professor.';
   } finally {
