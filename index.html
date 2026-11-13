@@ -109,6 +109,7 @@ th { background: var(--navy); color: var(--branco); font-weight: 700; text-align
 td { padding: 4px 14px; border-bottom: 1px solid var(--linha); white-space: nowrap; }
 tr:nth-child(even) td { background: var(--painel); }
 td.nulo { color: #8B95A5; font-style: italic; }
+.corpo.trancado { grid-template-columns: minmax(0, 760px); grid-template-areas: "main"; justify-content: center; }
 @media (max-width: 1199px) { .corpo { grid-template-columns: 290px minmax(0, 1fr); grid-template-areas: "lat main" "ex main"; } }
 @media (max-width: 820px) { .corpo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lat" "ex" "main"; } }
 @media (max-width: 520px) { h1 { font-size: 25px; } .campo { flex: 1 1 100%; } }
@@ -126,8 +127,8 @@ td.nulo { color: #8B95A5; font-style: italic; }
   </div>
 </header>
 
-<div class="corpo">
-<aside id="lateral" class="lateral" aria-label="Tabelas do aluno">
+<div class="corpo trancado">
+<aside id="lateral" class="lateral" hidden aria-label="Tabelas do aluno">
   <h2>Tabelas</h2>
   <p class="vazio">Escolha seu nome e clique em Entrar para ver as tabelas e as colunas.</p>
 </aside>
@@ -181,7 +182,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
 
   <section id="historico" aria-live="polite" hidden></section>
 </main>
-<aside id="exemplos" class="lateral" aria-label="Exemplos de comandos">
+<aside id="exemplos" class="lateral" hidden aria-label="Exemplos de comandos">
   <h2>Exemplos</h2>
   <div id="lista-ex"></div>
   <p class="nota-ex">Clique num exemplo para levá-lo ao editor e troque <code>tabela</code>, <code>nome_campo</code>, <code>valor</code> e <code>tipo</code> pelos nomes e tipos da lista à esquerda. Na tabela <code>aluno</code> você consulta e grava linhas; criar, alterar e apagar tabelas vale para as tabelas que você mesmo criar.</p>
@@ -199,10 +200,10 @@ const BANCO = 'escola';
 // 'npg_' + 20 caracteres do SHA-256 de "segredo:usuario" em base64 + 'Q7'. Assim um aluno novo, cadastrado no
 // Painel do Professor, já entra sem que a página precise ser gerada de novo.
 // O segredo está criptografado aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: '53iwBPnSOlxZjcCZSgXqqQ==', iv: 'H146f/7PRffNFM0u', iteracoes: 300000, dados: '9M9D3ybDnhaLfB6zUMJIOxZKtjhhRLfrTiTSvXTdbPw8ShElAGWqbTRjG4E4YVo/O0PpRrFtxEjA7DiNdiSi' };
+const COFRE = { sal: 'CWC75yAhCozwKyuvtgSqBQ==', iv: 'Zfo45sZ09SsWxLJe', iteracoes: 300000, dados: 'B2povm01nx3+E32NYNIDc+McmG9Vyk6g2lOMLEAQdYdmXcYCpNtPYIAxbKvBZ60OoOamhkTcO4AYdiCM4dJ8' };
 let SEGREDO = null;
 let FRASE = null;
-const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'tD/ZsD6pXiweSYYmTpGGLg==', iv: 'VKqskg7yrOXJJhDZ', iteracoes: 300000 };
+const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: '3Qs3zyxhnQ1y/Sc5UoGKPA==', iv: 'v0pV/NiuLc/1yIYf', iteracoes: 300000 };
 // O usuário docente (o professor) tem senha própria, cifrada com a chave do professor (AES-GCM).
 const COFRE_PROF = { sal: 'sSDnrMCGMEpKzTviAD5TnQ==', iv: 'KYeaY0EboGciVM0S', iteracoes: 300000, dados: 'RIrYRNM/uByUwBZoxHBAL3o+g1c6H+3t+0aBt9uTPFzdnj8lMd7qJrTBXMyHYuN9X21UWaauyA==' };
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -517,6 +518,9 @@ $('form-cofre').addEventListener('submit', async (ev) => {
     carregarAlunos();
     $('material').hidden = false;
     $('cofre').hidden = true;
+    $('lateral').hidden = false;
+    $('exemplos').hidden = false;
+    document.querySelector('.corpo').classList.remove('trancado');
     $('entrada').hidden = false;
     $('usuario').focus();
   } catch (e) {
