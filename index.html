@@ -200,12 +200,12 @@ const BANCO = 'escola';
 // 'npg_' + 20 caracteres do SHA-256 de "segredo:usuario" em base64 + 'Q7'. Assim um aluno novo, cadastrado no
 // Painel do Professor, já entra sem que a página precise ser gerada de novo.
 // O segredo está criptografado aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'CWC75yAhCozwKyuvtgSqBQ==', iv: 'Zfo45sZ09SsWxLJe', iteracoes: 300000, dados: 'B2povm01nx3+E32NYNIDc+McmG9Vyk6g2lOMLEAQdYdmXcYCpNtPYIAxbKvBZ60OoOamhkTcO4AYdiCM4dJ8' };
+const COFRE = { sal: 'AG63vuDGDVJrAonfpOxhlg==', iv: '3GYS2pKNoQdNEzzs', iteracoes: 300000, dados: 'zh/lHbBVeDATtXVu+nT7Po2VrndrN4RJl7H+kPiveFfP9L+/Pvr2g4Sh6dr0t0sTb/WBVcBKJPInwcuhNwfE' };
 let SEGREDO = null;
 let FRASE = null;
-const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: '3Qs3zyxhnQ1y/Sc5UoGKPA==', iv: 'v0pV/NiuLc/1yIYf', iteracoes: 300000 };
+const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'pWPnHNmf7LW2UYbR4L2/Rw==', iv: 'bnziskaqC4pI15xG', iteracoes: 300000 };
 // O usuário docente (o professor) tem senha própria, cifrada com a chave do professor (AES-GCM).
-const COFRE_PROF = { sal: 'sSDnrMCGMEpKzTviAD5TnQ==', iv: 'KYeaY0EboGciVM0S', iteracoes: 300000, dados: 'RIrYRNM/uByUwBZoxHBAL3o+g1c6H+3t+0aBt9uTPFzdnj8lMd7qJrTBXMyHYuN9X21UWaauyA==' };
+const COFRE_PROF = { sal: 'ovX5RsUEsF9uyqdymOjTUA==', iv: 'Z6dgUkl2guwCXdic', iteracoes: 300000, dados: 'iYunshiyI9XAJOLnZXZpwav7xSkAKfFWgOdbHqKhg+QoShXVBbrRaNftO7Fe5GvTTmdYoQc4sQ==' };
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrir(cofre, frase) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
