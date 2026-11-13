@@ -200,7 +200,7 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
       <div class="acao" id="acao-script">
         <div>
           <h3>Executar script <span id="script-alvo-titulo">em todos os alunos</span></h3>
-          <p class="meta">O script roda uma vez em cada schema, com o schema como padrão: escreva <code>CREATE TABLE curso (...)</code>, sem prefixo. Cada schema roda separado, e o erro num deles não desfaz os outros. Tabelas criadas pelo script ficam com o dono do schema. Um <code>SELECT</code> sozinho mostra as linhas de cada um. Para rodar num só, escolha o cartão dele lá em cima.</p>
+          <p class="meta">O script roda uma vez em cada schema, com o schema como padrão: escreva <code>CREATE TABLE curso (...)</code>, sem prefixo. Cada schema roda separado, e o erro num deles não desfaz os outros. Tabelas criadas pelo script ficam com o dono do schema. Se o script terminar num <code>SELECT</code>, as linhas aparecem. Para rodar num só, escolha o cartão dele lá em cima ou comece com <code>SET search_path TO aluno01;</code>.</p>
         </div>
         <div class="script">
           <textarea id="script-sql" spellcheck="false" aria-label="Script SQL" placeholder="CREATE TABLE curso (codigo VARCHAR(10) PRIMARY KEY, nome VARCHAR(60) NOT NULL);"></textarea>
@@ -694,7 +694,8 @@ $('script-executar').addEventListener('click', async () => {
   const b = $('script-executar');
   const texto = $('script-sql').value.trim();
   if (!texto) { $('script-msg').textContent = 'Escreva o script antes.'; return; }
-  const alvo = estado.visao === 'todas' ? null : estado.visao;
+  const fixado = texto.match(/^\s*set\s+(?:local\s+)?search_path\s*(?:to|=)\s*"?([a-z0-9_]+)"?/i);
+  const alvo = fixado ? fixado[1].toLowerCase() : (estado.visao === 'todas' ? null : estado.visao);
   if (!b.classList.contains('confirmar')) {
     b.classList.add('confirmar');
     b.textContent = alvo ? `Confirmar em ${rotulo(alvo)}` : `Confirmar em ${(estado.dados.resumo || []).length} schemas`;
@@ -716,9 +717,9 @@ $('script-executar').addEventListener('click', async () => {
     $('script-res').replaceChildren(...res.map((x) => {
       const item = el('div', 'item');
       item.append(el('b', '', x.nome || rotulo(x.ambiente)), el('code', '', x.ambiente));
-      item.append(x.ok ? el('span', 'tag ok', x.resultado ? `${x.linhas} ${x.linhas === 1 ? 'linha' : 'linhas'}` : `ok${x.linhas ? ` · ${x.linhas} ${x.linhas === 1 ? 'linha' : 'linhas'}` : ''}`) : el('span', 'tag erro', 'erro'));
+      item.append(x.ok ? el('span', 'tag ok', Array.isArray(x.resultado) ? `${x.linhas} ${x.linhas === 1 ? 'linha' : 'linhas'}` : `ok${x.linhas ? ` · ${x.linhas} ${x.linhas === 1 ? 'linha' : 'linhas'}` : ''}`) : el('span', 'tag erro', 'erro'));
       if (!x.ok) item.append(el('p', 'msg-erro', x.erro));
-      if (x.ok && Array.isArray(x.resultado) && x.resultado.length) item.append(tabelaDeLinhas(Object.keys(x.resultado[0]), x.resultado));
+      if (x.ok && Array.isArray(x.resultado) && x.resultado.length) item.append(tabelaDeLinhas(x.colunas || Object.keys(x.resultado[0]), x.resultado));
       return item;
     }));
     await carregar();
