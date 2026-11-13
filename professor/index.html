@@ -124,6 +124,16 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
 .vaga button { flex: none; height: 34px; min-width: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); color: var(--muted); font-weight: 700; cursor: pointer; }
 .vaga button:hover { color: var(--err); border-color: var(--err); }
 .vaga button.confirmar { background: var(--err); border-color: var(--err); color: var(--card); }
+#turma-msg { flex: 1 1 100%; margin: 4px 0 0; }
+.script { flex: 1 1 100%; display: grid; gap: 8px; min-width: 0; }
+.script textarea { width: 100%; min-height: 110px; padding: 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--code-bg); color: var(--fg); font: 14px/1.5 var(--mono); resize: vertical; }
+.script .linha-botoes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.res-script { display: grid; gap: 6px; }
+.res-script .item { padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; min-width: 0; }
+.res-script .item b { font-family: var(--serif); color: var(--navy); }
+.res-script .item code { color: var(--muted); margin-left: 6px; font-size: 13px; }
+.res-script .item .tag { margin-left: 8px; }
+.res-script .item .msg-erro { margin: 4px 0 0; color: var(--err); font-family: var(--mono); font-size: 13.5px; }
 .vaga input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); }
 .entrar { padding: 18px 16px 20px; display: grid; gap: 10px; justify-items: start; }
 .entrar h2 { margin: 0; font: 700 20px/1.2 var(--serif); color: var(--navy); }
@@ -185,6 +195,22 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
           <button id="desfazer-turma" class="btn" type="button" hidden>Desfazer</button>
         </div>
         <div id="turma-grade" class="turma-grade"></div>
+        <p id="turma-msg" class="aviso info" hidden></p>
+      </div>
+      <div class="acao" id="acao-script">
+        <div>
+          <h3>Executar script <span id="script-alvo-titulo">em todos os alunos</span></h3>
+          <p class="meta">O script roda uma vez em cada schema, com o schema como padrão: escreva <code>CREATE TABLE curso (...)</code>, sem prefixo. Cada schema roda separado, e o erro num deles não desfaz os outros. Tabelas criadas pelo script ficam com o dono do schema. Um <code>SELECT</code> sozinho mostra as linhas de cada um. Para rodar num só, escolha o cartão dele lá em cima.</p>
+        </div>
+        <div class="script">
+          <textarea id="script-sql" spellcheck="false" aria-label="Script SQL" placeholder="CREATE TABLE curso (codigo VARCHAR(10) PRIMARY KEY, nome VARCHAR(60) NOT NULL);"></textarea>
+          <div class="linha-botoes">
+            <button id="script-executar" class="btn perigo" type="button">Executar</button>
+            <button id="script-cancelar" class="btn" type="button" hidden>Cancelar</button>
+            <span id="script-msg" class="meta"></span>
+          </div>
+          <div id="script-res" class="res-script"></div>
+        </div>
       </div>
       <div class="acao" id="acao-qtd">
         <div>
@@ -298,7 +324,7 @@ window.claude = {
           }
           let r;
           try {
-            const acao = ['painel', 'definir_turma', 'remover_vaga', 'definir_duplas', 'recriar_aluno', 'apagar_tabelas', 'apagar_registros'].includes(entrada.acao) ? entrada.acao : 'painel';
+            const acao = ['painel', 'definir_turma', 'remover_vaga', 'executar_script', 'definir_duplas', 'recriar_aluno', 'apagar_tabelas', 'apagar_registros'].includes(entrada.acao) ? entrada.acao : 'painel';
             const corpoPedido = entrada.args || {};
             r = await fetch(`${DATA_API}/rpc/${acao}`, {
               method: 'POST',
@@ -583,13 +609,16 @@ function desenharAdmin() {
   const G = GRUPOS[estado.grupo];
   $('titulo-grupo').textContent = estado.grupo === 'alunos' ? 'alunos' : 'duplas';
   $('acao-turma').hidden = estado.grupo !== 'alunos';
+  if (estado.grupo !== 'alunos') estado.confirmandoVaga = false;
   $('acao-qtd').hidden = estado.grupo !== 'duplas';
   $('meta-recriar').innerHTML = G.recriar;
   $('meta-registros').innerHTML = G.registros;
   $('meta-tabelas').innerHTML = G.tabelas;
   $('rotulo-recriar').innerHTML = G.rotulo;
   if (document.activeElement !== $('qtd') && estado.dados.qtd_duplas) $('qtd').value = estado.dados.qtd_duplas;
-  if (!estado.turmaEditada) {
+  const nomeAlvo = estado.visao === 'todas' ? `em ${GRUPOS[estado.grupo].todos.toLowerCase()}` : `só em ${rotulo(estado.visao)} (${estado.visao})`;
+  $('script-alvo-titulo').textContent = nomeAlvo;
+  if (!estado.turmaEditada && !estado.confirmandoVaga) {
     const vagas = estado.dados.turma || [];
     $('turma-grade').replaceChildren(...vagas.map((t) => linhaDeVaga(Number(t.n), t.nome || '', true)));
     $('desfazer-turma').hidden = true;
@@ -599,7 +628,7 @@ function desenharAdmin() {
 // Uma linha do cadastro: o usuário da vaga (aluno01, aluno02, ...) e o nome do aluno
 function linhaDeVaga(k, nome, existe) {
   const u = `aluno${String(k).padStart(2, '0')}`;
-  const linha = el('label', 'vaga');
+  const linha = el('div', 'vaga');
   const campo = el('input');
   campo.type = 'text';
   campo.maxLength = 100;
@@ -621,26 +650,84 @@ function linhaDeVaga(k, nome, existe) {
 async function removerVaga(k, existe, linha, botao) {
   const u = `aluno${String(k).padStart(2, '0')}`;
   if (!existe) { linha.remove(); return; }
-  if (estado.turmaEditada) { adminMsg('Salve ou desfaça as alterações da turma antes de remover uma vaga.', true); return; }
+  if (estado.turmaEditada) { turmaMsg('Salve ou desfaça as alterações da turma antes de remover uma vaga.', true); return; }
   if (!botao.classList.contains('confirmar')) {
     botao.classList.add('confirmar');
     botao.textContent = 'Remover?';
-    adminMsg(`Clique de novo em "Remover?" para apagar a vaga ${u}: o usuário, o schema com as tabelas e os comandos registrados. Não dá para desfazer.`);
-    setTimeout(() => { if (botao.isConnected && botao.classList.contains('confirmar')) { botao.classList.remove('confirmar'); botao.textContent = '×'; } }, 6000);
+    estado.confirmandoVaga = true;
+    turmaMsg(`Clique de novo em "Remover?" para apagar a vaga ${u}: o usuário, o schema com as tabelas e os comandos registrados. Não dá para desfazer.`);
+    setTimeout(() => {
+      if (botao.isConnected && botao.classList.contains('confirmar') && !botao.disabled) {
+        botao.classList.remove('confirmar'); botao.textContent = '×'; estado.confirmandoVaga = false; turmaMsg('');
+      }
+    }, 8000);
     return;
   }
   botao.disabled = true;
-  adminMsg(`Removendo a vaga ${u}...`);
+  turmaMsg(`Removendo a vaga ${u}...`);
   try {
     await executarAdmin('remover_vaga', { p_n: k }, `SELECT professor.admin_remover_vaga(${Number(k)}) AS r`);
     if (estado.visao === u) estado.visao = 'todas';
-    adminMsg(`Vaga ${u} removida.`);
+    estado.confirmandoVaga = false;
+    turmaMsg(`Vaga ${u} removida.`);
     await carregar();
   } catch (e) {
-    adminMsg(textoDoErro(e), true);
+    estado.confirmandoVaga = false;
+    turmaMsg(textoDoErro(e), true);
     botao.disabled = false;
   }
 }
+
+function turmaMsg(texto, erro) {
+  const m = $('turma-msg');
+  m.className = erro ? 'aviso' : 'aviso info';
+  m.textContent = texto;
+  m.hidden = !texto;
+}
+
+// Script em todos os schemas do grupo (ou só no escolhido): primeiro clique confirma, o segundo executa
+$('script-cancelar').addEventListener('click', () => {
+  $('script-executar').classList.remove('confirmar'); $('script-executar').textContent = 'Executar';
+  $('script-cancelar').hidden = true; $('script-msg').textContent = '';
+});
+$('script-executar').addEventListener('click', async () => {
+  const b = $('script-executar');
+  const texto = $('script-sql').value.trim();
+  if (!texto) { $('script-msg').textContent = 'Escreva o script antes.'; return; }
+  const alvo = estado.visao === 'todas' ? null : estado.visao;
+  if (!b.classList.contains('confirmar')) {
+    b.classList.add('confirmar');
+    b.textContent = alvo ? `Confirmar em ${rotulo(alvo)}` : `Confirmar em ${(estado.dados.resumo || []).length} schemas`;
+    $('script-cancelar').hidden = false;
+    $('script-msg').textContent = 'Clique de novo para executar.';
+    return;
+  }
+  b.classList.remove('confirmar'); b.textContent = 'Executar'; $('script-cancelar').hidden = true;
+  b.disabled = true;
+  $('script-msg').textContent = 'Executando...';
+  $('script-res').replaceChildren();
+  try {
+    const g = estado.grupo;
+    const r = await executarAdmin('executar_script', alvo ? { p_sql: texto, p_grupo: g, p_alvo: alvo } : { p_sql: texto, p_grupo: g },
+      `SELECT professor.admin_executar_script(${sql(texto)}, ${sql(g)}, ${sql(alvo)}) AS r`);
+    const res = r.resultados || [];
+    const erros = res.filter((x) => !x.ok).length;
+    $('script-msg').textContent = `${res.length - erros} de ${res.length} ${res.length === 1 ? 'schema' : 'schemas'} sem erro.`;
+    $('script-res').replaceChildren(...res.map((x) => {
+      const item = el('div', 'item');
+      item.append(el('b', '', x.nome || rotulo(x.ambiente)), el('code', '', x.ambiente));
+      item.append(x.ok ? el('span', 'tag ok', x.resultado ? `${x.linhas} ${x.linhas === 1 ? 'linha' : 'linhas'}` : `ok${x.linhas ? ` · ${x.linhas} ${x.linhas === 1 ? 'linha' : 'linhas'}` : ''}`) : el('span', 'tag erro', 'erro'));
+      if (!x.ok) item.append(el('p', 'msg-erro', x.erro));
+      if (x.ok && Array.isArray(x.resultado) && x.resultado.length) item.append(tabelaDeLinhas(Object.keys(x.resultado[0]), x.resultado));
+      return item;
+    }));
+    await carregar();
+  } catch (e) {
+    $('script-msg').textContent = textoDoErro(e);
+  } finally {
+    b.disabled = false;
+  }
+});
 
 function desenhar() {
   if (!estado.dados) return;
