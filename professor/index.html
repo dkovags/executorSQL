@@ -650,7 +650,6 @@ function linhaDeVaga(k, nome, existe) {
 async function removerVaga(k, existe, linha, botao) {
   const u = `aluno${String(k).padStart(2, '0')}`;
   if (!existe) { linha.remove(); return; }
-  if (estado.turmaEditada) { turmaMsg('Salve ou desfaça as alterações da turma antes de remover uma vaga.', true); return; }
   if (!botao.classList.contains('confirmar')) {
     botao.classList.add('confirmar');
     botao.textContent = 'Remover?';
@@ -669,7 +668,8 @@ async function removerVaga(k, existe, linha, botao) {
     await executarAdmin('remover_vaga', { p_n: k }, `SELECT professor.admin_remover_vaga(${Number(k)}) AS r`);
     if (estado.visao === u) estado.visao = 'todas';
     estado.confirmandoVaga = false;
-    turmaMsg(`Vaga ${u} removida.`);
+    linha.remove();
+    turmaMsg(`Vaga ${u} removida.${estado.turmaEditada ? ' As outras alterações da turma continuam na tela, ainda sem salvar.' : ''}`);
     await carregar();
   } catch (e) {
     estado.confirmandoVaga = false;
