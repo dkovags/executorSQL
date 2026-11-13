@@ -181,8 +181,28 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
     </div>
     <div id="corpo" class="corpo"></div>
   </section>
+  <section id="secao-script" class="painel admin" aria-labelledby="titulo-script" hidden>
+    <div class="painel-cab"><h2 id="titulo-script">Executar script</h2></div>
+    <div class="admin-corpo">
+      <div class="acao" id="acao-script">
+        <div>
+          <p class="meta"><b id="script-alvo-titulo">Em todos os alunos</b></p>
+          <p class="meta">O script roda uma vez em cada schema, com o schema como padrão: escreva <code>CREATE TABLE curso (...)</code>, sem prefixo. Cada schema roda separado, e o erro num deles não desfaz os outros. Tabelas criadas pelo script ficam com o dono do schema. Se o script terminar num <code>SELECT</code>, as linhas aparecem. Para rodar num só, escolha o cartão dele lá em cima ou comece com <code>SET search_path TO aluno01;</code>.</p>
+        </div>
+        <div class="script">
+          <textarea id="script-sql" spellcheck="false" aria-label="Script SQL" placeholder="CREATE TABLE curso (codigo VARCHAR(10) PRIMARY KEY, nome VARCHAR(60) NOT NULL);"></textarea>
+          <div class="linha-botoes">
+            <button id="script-executar" class="btn perigo" type="button">Executar</button>
+            <button id="script-cancelar" class="btn" type="button" hidden>Cancelar</button>
+            <span id="script-msg" class="meta"></span>
+          </div>
+          <div id="script-res" class="res-script"></div>
+        </div>
+      </div>
+    </div>
+  </section>
   <section id="admin" class="painel admin" aria-labelledby="titulo-admin" hidden>
-    <div class="painel-cab"><h2 id="titulo-admin">Administração do banco · <span id="titulo-grupo">alunos</span></h2></div>
+    <div class="painel-cab"><h2 id="titulo-admin">Administração do Banco de Dados</h2></div>
     <div class="admin-corpo">
       <div class="acao" id="acao-turma">
         <div>
@@ -196,21 +216,6 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
         </div>
         <div id="turma-grade" class="turma-grade"></div>
         <p id="turma-msg" class="aviso info" hidden></p>
-      </div>
-      <div class="acao" id="acao-script">
-        <div>
-          <h3>Executar script <span id="script-alvo-titulo">em todos os alunos</span></h3>
-          <p class="meta">O script roda uma vez em cada schema, com o schema como padrão: escreva <code>CREATE TABLE curso (...)</code>, sem prefixo. Cada schema roda separado, e o erro num deles não desfaz os outros. Tabelas criadas pelo script ficam com o dono do schema. Se o script terminar num <code>SELECT</code>, as linhas aparecem. Para rodar num só, escolha o cartão dele lá em cima ou comece com <code>SET search_path TO aluno01;</code>.</p>
-        </div>
-        <div class="script">
-          <textarea id="script-sql" spellcheck="false" aria-label="Script SQL" placeholder="CREATE TABLE curso (codigo VARCHAR(10) PRIMARY KEY, nome VARCHAR(60) NOT NULL);"></textarea>
-          <div class="linha-botoes">
-            <button id="script-executar" class="btn perigo" type="button">Executar</button>
-            <button id="script-cancelar" class="btn" type="button" hidden>Cancelar</button>
-            <span id="script-msg" class="meta"></span>
-          </div>
-          <div id="script-res" class="res-script"></div>
-        </div>
       </div>
       <div class="acao" id="acao-qtd">
         <div>
@@ -607,7 +612,6 @@ function desenharOperacoes(corpo) {
 
 function desenharAdmin() {
   const G = GRUPOS[estado.grupo];
-  $('titulo-grupo').textContent = estado.grupo === 'alunos' ? 'alunos' : 'duplas';
   $('acao-turma').hidden = estado.grupo !== 'alunos';
   if (estado.grupo !== 'alunos') estado.confirmandoVaga = false;
   $('acao-qtd').hidden = estado.grupo !== 'duplas';
@@ -616,7 +620,7 @@ function desenharAdmin() {
   $('meta-tabelas').innerHTML = G.tabelas;
   $('rotulo-recriar').innerHTML = G.rotulo;
   if (document.activeElement !== $('qtd') && estado.dados.qtd_duplas) $('qtd').value = estado.dados.qtd_duplas;
-  const nomeAlvo = estado.visao === 'todas' ? `em ${GRUPOS[estado.grupo].todos.toLowerCase()}` : `só em ${rotulo(estado.visao)} (${estado.visao})`;
+  const nomeAlvo = estado.visao === 'todas' ? `Em ${GRUPOS[estado.grupo].todos.toLowerCase()}` : `Só em ${rotulo(estado.visao)} (${estado.visao})`;
   $('script-alvo-titulo').textContent = nomeAlvo;
   if (!estado.turmaEditada && !estado.confirmandoVaga) {
     const vagas = estado.dados.turma || [];
@@ -742,6 +746,7 @@ function desenhar() {
   else desenharOperacoes(corpo);
   if (!(estado.dados.resumo || []).length) corpo.prepend(el('p', 'vazio', GRUPOS[estado.grupo].vazio));
   $('detalhe').hidden = false;
+  $('secao-script').hidden = false;
   $('admin').hidden = false;
   desenharAdmin();
 }
