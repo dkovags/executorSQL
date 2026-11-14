@@ -138,6 +138,50 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
 .entrar { padding: 18px 16px 20px; display: grid; gap: 10px; justify-items: start; }
 .entrar h2 { margin: 0; font: 700 20px/1.2 var(--serif); color: var(--navy); }
 @media (max-width: 520px) { h1 { font-size: 24px; } .filtros input[type=search] { width: 100%; } }
+/* Celular: cartões numa faixa que rola para o lado, comandos logo abaixo; script e administração em painéis que sobem */
+.atalhos-prof, .fechar-painel, #fundo { display: none; }
+@media (max-width: 820px) {
+  .topo-in { padding-block: 10px 8px; gap: 6px 12px; }
+  .topo .sub { display: none; }
+  h1 { font-size: 22px; }
+  .barra { gap: 6px 10px; }
+  .barra .chip { font-size: 12.5px; padding: 3px 9px; }
+  label.auto { font-size: 13px; }
+  main { padding-block: 12px 32px; gap: 12px; }
+  .grade { display: flex; overflow-x: auto; gap: 8px; padding-bottom: 6px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .card-dupla { flex: 0 0 148px; scroll-snap-align: start; padding: 9px 11px; gap: 2px; }
+  .card-dupla h3 { font-size: 15.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-dupla .linha { font-size: 13px; }
+  .card-dupla .l-extra, .card-dupla .quando, .card-dupla .nomes { display: none; }
+  .atalhos-prof { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .atalhos-prof button { height: 44px; }
+  .painel-cab { padding: 8px 12px; }
+  .aba { padding: 0 10px; }
+  .filtros { width: 100%; }
+  .cmd { padding: 9px 12px; }
+  .cmd pre { font-size: 13px; }
+  .tab-bloco { padding: 10px 12px 14px; }
+  table { font-size: 13px; }
+  th { padding: 5px 8px; } td { padding: 4px 8px; }
+  #secao-script, #admin { display: none; }
+  #secao-script.aberta, #admin.aberta {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-height: 86vh; overflow-y: auto;
+    border-radius: 14px 14px 0 0; border: 0; box-shadow: 0 -8px 30px rgba(15, 43, 91, 0.25);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .aberta .fechar-painel { display: flex; position: sticky; top: 0; z-index: 2; justify-content: space-between; align-items: center;
+    padding: 12px 16px 10px; background: var(--card); border-bottom: 1px solid var(--line); }
+  .fechar-painel b { font: 700 17px/1.2 var(--serif); color: var(--navy); }
+  .aberta > .painel-cab { display: none; }
+  .acao { padding: 12px 0; gap: 10px; }
+  .acao > div:first-child { flex: 1 1 100%; }
+  .controles { flex-wrap: wrap; width: 100%; }
+  .controles button.btn { flex: 1 1 auto; height: 42px; }
+  .turma-grade { grid-template-columns: minmax(0, 1fr); }
+  .script textarea { font-size: 16px; min-height: 130px; }
+  #fundo.aberto { display: block; position: fixed; inset: 0; z-index: 29; background: rgba(13, 22, 38, 0.45); }
+  body.travado { overflow: hidden; }
+}
 </style>
 </head>
 <body>
@@ -166,6 +210,10 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
     <p id="login-msg" class="sub" hidden></p>
   </section>
   <p id="aviso" class="aviso info" hidden></p>
+  <div class="atalhos-prof">
+    <button type="button" class="btn" data-painel="secao-script">Executar script</button>
+    <button type="button" class="btn" data-painel="admin">Administração</button>
+  </div>
   <div class="grupos-barra">
     <div class="abas" role="tablist" id="grupos" aria-label="Grupo"></div>
     <p id="atualizado" class="sub" hidden></p>
@@ -262,6 +310,7 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
     </div>
   </section>
 </main>
+<div id="fundo"></div>
 
 <script>
 // Login pelo Google (Google Identity Services) e acesso aos dados pela Data API do Neon.
@@ -505,10 +554,10 @@ function desenharGrade() {
     } else {
       b.append(el('h3', '', rotulo(d.ambiente)), el('div', 'nomes', d.nome || 'integrantes não informados'));
     }
-    const a = el('div', 'linha'); a.append(el('span', '', 'linhas em aluno'), el('b', '', d.alunos === null ? 'sem tabela' : String(d.alunos)));
+    const a = el('div', 'linha l-extra'); a.append(el('span', '', 'linhas em aluno'), el('b', '', d.alunos === null ? 'sem tabela' : String(d.alunos)));
     const c = el('div', 'linha'); c.append(el('span', '', 'comandos'), el('b', '', String(d.comandos)));
     const e = el('div', 'linha'); e.append(el('span', '', 'com erro'), el('b', d.erros ? 'erro' : '', String(d.erros)));
-    const t = el('div', 'linha'); t.append(el('span', '', 'tabelas'), el('b', '', String(d.tabelas)));
+    const t = el('div', 'linha l-extra'); t.append(el('span', '', 'tabelas'), el('b', '', String(d.tabelas)));
     const ult = [d.ultimo_comando, d.ultima_operacao].filter(Boolean).sort().pop();
     b.append(a, c, e, t, el('div', 'quando', `última atividade: ${haQuanto(ult)}`));
     b.addEventListener('click', () => escolher(d.ambiente));
@@ -878,6 +927,33 @@ confirmavel($('apagar-tabelas'), async () => {
   const r = await executarAdmin('apagar_tabelas', { p_recriar_aluno: recriar, p_grupo: g }, `SELECT professor.admin_apagar_tabelas(${recriar ? 'true' : 'false'}, ${sql(g)}) AS r`);
   return `Tabelas apagadas: ${r.tabelas_apagadas}.${r.aluno_recriada ? ` A tabela aluno foi recriada, vazia, ${g === 'alunos' ? 'para cada aluno da turma' : 'em cada dupla em uso'}.` : ' Nenhuma tabela foi recriada.'}`;
 });
+
+// ---------------------------------------------------------------- celular: painéis de script e administração
+function fecharPaineis() {
+  ['secao-script', 'admin'].forEach((id) => $(id).classList.remove('aberta'));
+  $('fundo').classList.remove('aberto');
+  document.body.classList.remove('travado');
+}
+function abrirPainel(id) {
+  fecharPaineis();
+  const p = $(id);
+  if (!p.querySelector('.fechar-painel')) {
+    const cab = el('div', 'fechar-painel');
+    const f = el('button', 'btn', 'Fechar');
+    f.type = 'button';
+    f.addEventListener('click', fecharPaineis);
+    cab.append(el('b', '', id === 'admin' ? 'Administração do Banco de Dados' : 'Executar script'), f);
+    p.prepend(cab);
+  }
+  p.classList.add('aberta');
+  $('fundo').classList.add('aberto');
+  document.body.classList.add('travado');
+  p.scrollTop = 0;
+}
+document.querySelectorAll('.atalhos-prof button').forEach((b) => b.addEventListener('click', () => abrirPainel(b.dataset.painel)));
+$('fundo').addEventListener('click', fecharPaineis);
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharPaineis(); });
+window.matchMedia('(max-width: 820px)').addEventListener('change', (ev) => { if (!ev.matches) fecharPaineis(); });
 
 // ---------------------------------------------------------------- início
 $('atualizar').addEventListener('click', () => { carregar().then(agendar); });
