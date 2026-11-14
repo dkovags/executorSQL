@@ -113,6 +113,33 @@ td.nulo { color: #8B95A5; font-style: italic; }
 @media (max-width: 1199px) { .corpo { grid-template-columns: 290px minmax(0, 1fr); grid-template-areas: "lat main" "ex main"; } }
 @media (max-width: 820px) { .corpo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lat" "ex" "main"; } }
 @media (max-width: 520px) { h1 { font-size: 25px; } .campo { flex: 1 1 100%; } }
+/* Celular e tablet em pé: o editor fica no topo; tabelas e exemplos abrem num painel que sobe da parte de baixo */
+.atalhos, .fechar-painel, #fundo { display: none; }
+@media (max-width: 820px) {
+  .corpo { grid-template-areas: "main"; padding-block: 14px 28px; gap: 14px; }
+  main { gap: 14px; }
+  #entrada { order: 1; } #trabalho { order: 2; } #historico { order: 3; } #material { order: 4; }
+  .faixa-in { padding-block: 12px 10px; }
+  .atalhos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .atalhos button { height: 44px; }
+  .acoes button { height: 44px; flex: 1 1 0; }
+  .acoes .dica { flex: 1 1 100%; }
+  .so-teclado { display: none; }
+  #sql { min-height: 140px; }
+  #lateral, #exemplos { display: none; }
+  #lateral.aberta, #exemplos.aberta {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-height: 78vh; overflow-y: auto;
+    border-radius: 14px 14px 0 0; border: 0; box-shadow: 0 -8px 30px rgba(15, 43, 91, 0.25);
+    padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  }
+  .aberta .fechar-painel { display: flex; position: sticky; top: 0; z-index: 1; justify-content: space-between; align-items: center;
+    margin: 0 -16px 8px; padding: 12px 16px 10px; background: var(--branco); border-bottom: 1px solid var(--linha); }
+  .fechar-painel b { font-size: 16px; color: var(--navy); }
+  .fechar-painel button { height: 38px; }
+  .aberta > h2:first-of-type { display: none; }
+  #fundo.aberto { display: block; position: fixed; inset: 0; z-index: 29; background: rgba(13, 22, 38, 0.45); }
+  body.travado { overflow: hidden; }
+}
 @media (prefers-reduced-motion: no-preference) { .bloco.esperando .res { animation: pulsar 1.2s ease-in-out infinite; } }
 @keyframes pulsar { 50% { opacity: 0.45; } }
 </style>
@@ -172,11 +199,15 @@ td.nulo { color: #8B95A5; font-style: italic; }
       <label for="sql" class="rotulo">Comandos SQL</label>
       <button id="trocar" class="secundario" type="button">Trocar de aluno</button>
     </div>
-    <textarea id="sql" spellcheck="false"></textarea>
+    <div class="atalhos">
+      <button type="button" class="secundario" data-painel="lateral">Tabelas</button>
+      <button type="button" class="secundario" data-painel="exemplos">Exemplos</button>
+    </div>
+    <textarea id="sql" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
     <div class="acoes">
       <button id="executar" type="button">Executar</button>
       <button id="limpar" class="secundario" type="button">Limpar</button>
-      <span class="dica">Ctrl+Enter também executa. Cada comando termina em <code>;</code> se tiver mais de uma instrução. O que der certo sai do editor e vai para o histórico; o que der erro fica no editor para corrigir.</span>
+      <span class="dica"><span class="so-teclado">Ctrl+Enter também executa. </span>Cada comando termina em <code>;</code> se tiver mais de uma instrução. O que der certo sai do editor e vai para o histórico; o que der erro fica no editor para corrigir.</span>
     </div>
   </section>
 
@@ -188,6 +219,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
   <p class="nota-ex">Clique num exemplo para levá-lo ao editor e troque <code>tabela</code>, <code>nome_campo</code>, <code>valor</code> e <code>tipo</code> pelos nomes e tipos da lista à esquerda. Na tabela <code>aluno</code> você consulta e grava linhas; criar, alterar e apagar tabelas vale para as tabelas que você mesmo criar.</p>
 </aside>
 </div>
+<div id="fundo"></div>
 
 <script>
 // Conversa com o Neon pela web (porta 443), com o usuário do aluno escolhido: cada aluno tem um usuário e um
@@ -200,10 +232,10 @@ const BANCO = 'escola';
 // 'npg_' + 20 caracteres do SHA-256 de "segredo:usuario" em base64 + 'Q7'. Assim um aluno novo, cadastrado no
 // Painel do Professor, já entra sem que a página precise ser gerada de novo.
 // O segredo está criptografado aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'AG63vuDGDVJrAonfpOxhlg==', iv: '3GYS2pKNoQdNEzzs', iteracoes: 300000, dados: 'zh/lHbBVeDATtXVu+nT7Po2VrndrN4RJl7H+kPiveFfP9L+/Pvr2g4Sh6dr0t0sTb/WBVcBKJPInwcuhNwfE' };
+const COFRE = { sal: 'dqwD2PmyLUALfcsMaK3r6A==', iv: 'hJr6BZvIAvuTKEIv', iteracoes: 300000, dados: 'uZQ9lkFGp+IhfzFuxaf/CzLBnMP2cd0Tt6QyhDKsSTXHH9DH8l8gz7+wFs0PkvbOq5oJm8mjPMTcxmcOkJhv' };
 let SEGREDO = null;
 let FRASE = null;
-const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'pWPnHNmf7LW2UYbR4L2/Rw==', iv: 'bnziskaqC4pI15xG', iteracoes: 300000 };
+const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: '7l7hoPfY56E7dpypEjkxww==', iv: 'htyTosMtTNHc16qV', iteracoes: 300000 };
 // O usuário docente (o professor) tem senha própria, cifrada com a chave do professor (AES-GCM).
 const COFRE_PROF = { sal: 'ovX5RsUEsF9uyqdymOjTUA==', iv: 'Z6dgUkl2guwCXdic', iteracoes: 300000, dados: 'iYunshiyI9XAJOLnZXZpwav7xSkAKfFWgOdbHqKhg+QoShXVBbrRaNftO7Fe5GvTTmdYoQc4sQ==' };
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -337,16 +369,48 @@ EXEMPLOS.forEach(([nome, sql]) => {
   b.type = 'button';
   b.append(el('span', 'ex-nome', nome), el('code', '', sql));
   b.addEventListener('click', () => {
-    const ed = $('sql');
-    if (ed.closest('[hidden]')) return;
-    const atual = ed.value.replace(/\s+$/, '');
-    ed.value = (atual ? `${atual}\n` : '') + sql;
-    ed.focus();
+    if ($('sql').closest('[hidden]')) return;
+    levarAoEditor(sql);
   });
   const d = el('div', 'ex');
   d.append(b);
   $('lista-ex').append(d);
 });
+
+// ---------------------------------------------------------------- celular: painéis de tabelas e exemplos
+const celular = () => window.matchMedia('(max-width: 820px)').matches;
+function fecharPaineis() {
+  ['lateral', 'exemplos'].forEach((id) => $(id).classList.remove('aberta'));
+  $('fundo').classList.remove('aberto');
+  document.body.classList.remove('travado');
+}
+function abrirPainel(id) {
+  fecharPaineis();
+  const p = $(id);
+  if (!p.querySelector('.fechar-painel')) {
+    const cab = el('div', 'fechar-painel');
+    const f = el('button', 'secundario', 'Fechar');
+    f.type = 'button';
+    f.addEventListener('click', fecharPaineis);
+    cab.append(el('b', '', id === 'lateral' ? 'Tabelas' : 'Exemplos'), f);
+    p.prepend(cab);
+  }
+  p.classList.add('aberta');
+  $('fundo').classList.add('aberto');
+  document.body.classList.add('travado');
+  p.scrollTop = 0;
+}
+document.querySelectorAll('.atalhos button').forEach((b) => b.addEventListener('click', () => abrirPainel(b.dataset.painel)));
+$('fundo').addEventListener('click', fecharPaineis);
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharPaineis(); });
+window.matchMedia('(max-width: 820px)').addEventListener('change', (ev) => { if (!ev.matches) fecharPaineis(); });
+// no celular, depois de levar algo ao editor, o painel fecha e o editor aparece, sem abrir o teclado
+function levarAoEditor(texto) {
+  const ed = $('sql');
+  const atual = ed.value.replace(/\s+$/, '');
+  ed.value = (atual ? `${atual}\n` : '') + texto;
+  if (celular()) { fecharPaineis(); ed.scrollIntoView({ block: 'center' }); } else { ed.focus(); }
+}
 
 // ---------------------------------------------------------------- tabelas e colunas na lateral
 const SQL_ESQUEMA = `SELECT c.table_name, c.column_name, c.data_type, c.character_maximum_length,
@@ -401,12 +465,7 @@ async function outrosSchemas() {
         const b = el('button', '', `${esq}.${tab}`);
         b.type = 'button';
         b.title = 'Clique para levar um SELECT desta tabela ao editor';
-        b.addEventListener('click', () => {
-          const ed = $('sql');
-          const atual = ed.value.replace(/\s+$/, '');
-          ed.value = (atual ? `${atual}\n` : '') + `SELECT * FROM ${esq}.${tab};`;
-          ed.focus();
-        });
+        b.addEventListener('click', () => levarAoEditor(`SELECT * FROM ${esq}.${tab};`));
         const li = el('li');
         li.append(b);
         ul.append(li);
