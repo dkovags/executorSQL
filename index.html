@@ -139,6 +139,12 @@ td.nulo { color: #8B95A5; font-style: italic; }
   .aberta > h2:first-of-type { display: none; }
   #fundo.aberto { display: block; position: fixed; inset: 0; z-index: 29; background: rgba(13, 22, 38, 0.45); }
   body.travado { overflow: hidden; }
+  table { font-size: 13px; }
+  th { padding: 5px 8px; }
+  td { padding: 4px 8px; }
+  .cmd { font-size: 13.5px; }
+  .res { font-size: 14px; }
+  .tabela { margin-left: -4px; margin-right: -4px; }
 }
 @media (prefers-reduced-motion: no-preference) { .bloco.esperando .res { animation: pulsar 1.2s ease-in-out infinite; } }
 @keyframes pulsar { 50% { opacity: 0.45; } }
@@ -232,10 +238,10 @@ const BANCO = 'escola';
 // 'npg_' + 20 caracteres do SHA-256 de "segredo:usuario" em base64 + 'Q7'. Assim um aluno novo, cadastrado no
 // Painel do Professor, já entra sem que a página precise ser gerada de novo.
 // O segredo está criptografado aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'dqwD2PmyLUALfcsMaK3r6A==', iv: 'hJr6BZvIAvuTKEIv', iteracoes: 300000, dados: 'uZQ9lkFGp+IhfzFuxaf/CzLBnMP2cd0Tt6QyhDKsSTXHH9DH8l8gz7+wFs0PkvbOq5oJm8mjPMTcxmcOkJhv' };
+const COFRE = { sal: 'sMIXqWkGcXICuSpbv6ofiQ==', iv: 'ay4G2/JWzmkExa8e', iteracoes: 300000, dados: 'eSBt7oxOqew5ZtQ+wmKn9dSup+nVjisONqp/ktiNOQ+ikolNXug0T81EYSIeO+PRLyC8b825sl1jE6RQXyT8' };
 let SEGREDO = null;
 let FRASE = null;
-const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: '7l7hoPfY56E7dpypEjkxww==', iv: 'htyTosMtTNHc16qV', iteracoes: 300000 };
+const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'CZs2WO1trO5dnlIYlmw2vA==', iv: 'gkW72H/vLcXtGKi4', iteracoes: 300000 };
 // O usuário docente (o professor) tem senha própria, cifrada com a chave do professor (AES-GCM).
 const COFRE_PROF = { sal: 'ovX5RsUEsF9uyqdymOjTUA==', iv: 'Z6dgUkl2guwCXdic', iteracoes: 300000, dados: 'iYunshiyI9XAJOLnZXZpwav7xSkAKfFWgOdbHqKhg+QoShXVBbrRaNftO7Fe5GvTTmdYoQc4sQ==' };
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
