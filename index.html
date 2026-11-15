@@ -101,7 +101,7 @@ textarea { display: block; width: 100%; min-height: 150px; padding: 10px 12px; b
 .res { margin: 0; font-family: var(--mono); font-size: 15px; color: var(--tinta); font-variant-numeric: tabular-nums; }
 .bloco.esperando .res { color: var(--cinza); }
 .bloco.erro .res { color: var(--vermelho); font-weight: 700; }
-.detalhe { margin: 2px 0 0; font-family: var(--mono); font-size: 14.5px; color: var(--vermelho); }
+.detalhe { margin: 2px 0 0; font-family: var(--mono); font-size: 14.5px; color: var(--vermelho); white-space: pre-line; }
 .dica-erro { margin: 6px 0 0; font-size: 15px; color: var(--tinta); }
 .tabela { overflow-x: auto; margin: 4px 0 8px; }
 table { border-collapse: collapse; font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; }
@@ -329,27 +329,138 @@ async function consultar(query, usuario, senha, params = []) {
   return corpo;
 }
 
-// explicação curta para as mensagens mais comuns do laboratório
-function explicar(msg) {
+// explicação curta para as mensagens mais comuns do laboratório. O detalhe do banco
+// ("Key (coluna)=(valor) ...") e o próprio comando ajudam a dizer qual valor, coluna ou tabela
+// causou o erro. A ordem dos testes importa: "column ... of relation ... does not exist" também
+// contém "relation ... does not exist", e por isso as mensagens de coluna vêm antes.
+function explicar(msg, detalhe = '', comando = '') {
+  let m;
+  const chave = /Key \((.+?)\)=\((.*)\) (?:already exists|is duplicated|is not present in table "([^"]+)"|is still referenced from table "([^"]+)")/.exec(detalhe);
+  // uma coluna: matricula = 202601; mais de uma: (evento_id, pessoa_matricula) = (1, 202601)
+  const varias = chave && chave[1].includes(',');
+  const cols = chave ? (varias ? `(${chave[1]})` : chave[1]) : '';
+  const vals = chave ? (varias ? `(${chave[2]})` : chave[2]) : '';
+  const qual = chave ? `${cols} = ${vals}` : '';
+  const comeca = (palavra) => new RegExp(`^\\s*${palavra}\\b`, 'i').test(comando);
+
   if (/not permitted to log in/.test(msg)) return 'Este nome não está ativo no banco agora. Avise o professor.';
   if (/password authentication failed/.test(msg)) return 'Usuário ou senha recusados pelo banco. Avise o professor.';
   if (/syntax error at or near/.test(msg)) return 'Erro de digitação no SQL, perto da palavra indicada. Confira vírgulas, aspas e parênteses.';
+  if (/unterminated quoted string/.test(msg)) return 'Falta fechar uma aspa simples.';
+
+  // chave estrangeira: valor que não existe na tabela apontada
+  if ((m = /insert or update on table "([^"]+)" violates foreign key constraint/.exec(msg))) {
+    if (!chave || !chave[3]) return 'A chave estrangeira só aceita valores que já existem na tabela apontada. Cadastre antes a linha lá, ou deixe a coluna em NULL, se ela aceitar.';
+    if (comeca('ALTER')) return `Já há em ${m[1]} uma linha com ${qual}, e esse valor não existe em ${chave[3]}. Corrija essa linha com UPDATE, ou cadastre o valor em ${chave[3]}, antes de criar a chave estrangeira.`;
+    return `O valor ${vals} de ${cols} não existe na tabela ${chave[3]}, e a chave estrangeira só aceita valores que já estão lá. Cadastre antes a linha de ${chave[3]} com esse valor, ou deixe ${cols} em NULL, se a coluna aceitar.`;
+  }
+  // chave estrangeira: linha da tabela pai ainda apontada pela tabela filha
+  if ((m = /update or delete on table "([^"]+)" violates foreign key constraint "[^"]+" on table "([^"]+)"/.exec(msg))) {
+    const [, pai, filha] = m;
+    const alvo = chave ? `a linha de ${pai} com ${qual}` : `essa linha de ${pai}`;
+    if (comeca('UPDATE')) return `Ainda há linhas em ${filha} apontando para ${alvo}, e a chave estrangeira não deixa mudar uma chave em uso.`;
+    return `Ainda há linhas em ${filha} apontando para ${alvo}. Apague ou troque antes essas linhas de ${filha}; com ON DELETE CASCADE ou SET NULL na chave estrangeira, o banco faria isso sozinho.`;
+  }
+  if ((m = /cannot drop table (\S+) because other objects depend on it/.exec(msg))) {
+    const t = m[1];
+    const filhas = [...new Set([...detalhe.matchAll(/on table (\S+) depends on table/g)].map((x) => x[1]))];
+    if (!filhas.length) return `Outros objetos dependem de ${t}. Apague antes o que depende dela.`;
+    if (filhas.length === 1) return `A tabela ${filhas[0]} tem chave estrangeira apontando para ${t}. Apague primeiro ${filhas[0]} e depois ${t}, ou as duas no mesmo comando: DROP TABLE ${filhas[0]}, ${t};`;
+    const lista = `${filhas.slice(0, -1).join(', ')} e ${filhas[filhas.length - 1]}`;
+    return `As tabelas ${lista} têm chave estrangeira apontando para ${t}. Apague primeiro essas tabelas e depois ${t}, ou todas no mesmo comando: DROP TABLE ${filhas.join(', ')}, ${t};`;
+  }
+  if (/foreign key constraint "[^"]+" cannot be implemented/.test(msg)) {
+    const d = /Key columns "([^"]+)" and "([^"]+)" are of incompatible types: (.+) and (.+?)\.?$/.exec(detalhe);
+    const tipo = (x) => ({ 'character varying': 'VARCHAR', integer: 'INTEGER', numeric: 'DECIMAL', date: 'DATE' }[x] || x);
+    return d
+      ? `A coluna ${d[1]} (${tipo(d[3])}) aponta para ${d[2]} (${tipo(d[4])}), e as duas precisam ser do mesmo tipo.`
+      : 'A coluna da chave estrangeira e a coluna apontada precisam ser do mesmo tipo.';
+  }
+  if ((m = /there is no unique constraint matching given keys for referenced table "([^"]+)"/.exec(msg))) return `A chave estrangeira só aponta para a chave primária de ${m[1]} ou para uma coluna UNIQUE dela. Confira a coluna entre parênteses depois de REFERENCES.`;
+  if ((m = /column "([^"]+)" referenced in foreign key constraint does not exist/.exec(msg))) return `A coluna ${m[1]}, usada na chave estrangeira, não existe. Confira os nomes em FOREIGN KEY (...) e entre os parênteses depois de REFERENCES.`;
+
+  // CHECK
+  if ((m = /new row for relation "([^"]+)" violates check constraint "([^"]+)"/.exec(msg))) {
+    const [, t, nome] = m;
+    // o nome que o banco dá a um CHECK de uma coluna só é tabela_coluna_check
+    const col = nome.startsWith(`${t}_`) && nome.endsWith('_check') ? nome.slice(t.length + 1, -6) : '';
+    return col
+      ? `O valor de ${col} não passa na restrição CHECK dessa coluna. O detalhe mostra a linha recusada, com os valores na ordem das colunas de ${t}.`
+      : `A linha não passa na restrição CHECK ${nome}, da tabela ${t}. O detalhe mostra a linha recusada, com os valores na ordem das colunas.`;
+  }
+  if ((m = /check constraint "[^"]+" of relation "([^"]+)" is violated by some row/.exec(msg))) return `Já há linhas em ${m[1]} que não passam nessa regra. Corrija essas linhas com UPDATE antes de criar a restrição.`;
+
+  // chave primária, UNIQUE e NOT NULL
+  if ((m = /duplicate key value violates unique constraint "([^"]+)"/.exec(msg))) {
+    if (m[1] === 'aluno_pkey') return 'Essa matrícula já está na tabela. A chave primária não aceita repetição.';
+    const ja = chave ? `Já existe uma linha com ${qual}.` : 'Esse valor já está na tabela.';
+    if (m[1].endsWith('_pkey')) return `${ja} A chave primária não aceita repetição.`;
+    if (m[1].endsWith('_key')) return `${ja} A restrição UNIQUE não aceita repetição.`;
+    return `${ja} A restrição ${m[1]} não aceita repetição.`;
+  }
+  if (/could not create unique index/.test(msg)) return `Já há mais de uma linha com ${qual || 'o mesmo valor'}. Corrija as repetições antes de criar a restrição UNIQUE ou a chave primária.`;
+  if ((m = /null value in column "([^"]+)" of relation "([^"]+)" violates not-null constraint/.exec(msg))) return `Faltou o valor de ${m[1]}, coluna obrigatória da tabela ${m[2]} (NOT NULL ou chave primária).`;
   if (/violates not-null constraint/.test(msg)) return 'Faltou o valor de uma coluna obrigatória (NOT NULL).';
-  if (/duplicate key value violates unique constraint/.test(msg)) return 'Essa matrícula já está na tabela. A chave primária não aceita repetição.';
-  if (/relation ".*" does not exist/.test(msg)) return 'Nome de tabela errado. Confira o nome na lista da esquerda.';
-  if (/column ".*" .*does not exist/.test(msg)) return 'Nome de coluna errado: as colunas são matricula, nome, nota1 e nota2.';
+  if ((m = /column "([^"]+)" of relation "([^"]+)" contains null values/.exec(msg))) return `Já há linhas em ${m[2]} com ${m[1]} em NULL, e coluna NOT NULL não aceita isso. Preencha ${m[1]} com UPDATE antes de torná-la obrigatória, ou, numa coluna nova, dê um DEFAULT.`;
+
+  // nomes de coluna, restrição, tabela e tipo
+  if ((m = /column "([^"]+)" of relation "([^"]+)" already exists/.exec(msg))) return `A tabela ${m[2]} já tem a coluna ${m[1]}.`;
+  if ((m = /column "([^"]+)" can only be updated to DEFAULT/.exec(msg))) return `A coluna ${m[1]} é numerada pelo banco e não aceita outro valor.`;
+  if ((m = /column "([^"]+)" (?:of relation "([^"]+)" )?does not exist/.exec(msg))) {
+    return m[2] && m[2] !== 'aluno'
+      ? `A tabela ${m[2]} não tem a coluna ${m[1]}. Confira os nomes na lista Tabelas.`
+      : 'Nome de coluna errado. Confira os nomes na lista Tabelas; em aluno, as colunas são matricula, nome, nota1 e nota2.';
+  }
+  if ((m = /column reference "([^"]+)" is ambiguous/.exec(msg))) return `Mais de uma tabela da consulta tem a coluna ${m[1]}. Escreva o nome da tabela antes da coluna: tabela.${m[1]}.`;
+  if ((m = /missing FROM-clause entry for table "([^"]+)"/.exec(msg))) return `A consulta usa a tabela ${m[1]}, mas ${m[1]} não está no FROM nem num JOIN.`;
+  if ((m = /constraint "([^"]+)" of relation "([^"]+)" does not exist/.exec(msg))) return `A tabela ${m[2]} não tem restrição chamada ${m[1]}. Os nomes que o banco cria seguem o padrão tabela_pkey, tabela_coluna_key, tabela_coluna_fkey e tabela_coluna_check.`;
+  if ((m = /relation "([^"]+)" does not exist/.exec(msg))) {
+    const t = m[1].replace(/^.*\./, '');
+    const apontada = new RegExp(`REFERENCES\\s+(?:\\w+\\.)?"?${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"?(?!\\w)`, 'i');
+    if (apontada.test(comando)) return `A tabela ${t}, apontada pela chave estrangeira, ainda não existe. Crie primeiro a tabela apontada e depois a que aponta para ela.`;
+    return 'Nome de tabela errado. Confira o nome na lista Tabelas.';
+  }
+  if ((m = /table "([^"]+)" does not exist/.exec(msg))) return `Não há tabela ${m[1]} no seu schema. Confira o nome na lista Tabelas; com DROP TABLE IF EXISTS, o banco não reclama quando ela não existe.`;
+  if ((m = /relation "([^"]+)" already exists/.exec(msg))) {
+    return m[1] === 'aluno'
+      ? 'A tabela aluno do professor já está no seu schema e não pode ser criada de novo. Para testar um script que cria outra tabela aluno, troque o nome, por exemplo para estudante.'
+      : `Já existe uma tabela ${m[1]} no seu schema. Para criá-la de novo, apague antes a antiga com DROP TABLE, ou escolha outro nome.`;
+  }
+  if ((m = /type "([^"]+)" does not exist/.exec(msg))) return `O tipo ${m[1]} não existe no SQL. Para texto, use VARCHAR(n); para inteiro, INTEGER; para número com casas decimais, DECIMAL(p,s); para data, DATE.`;
+
+  // valores
+  if ((m = /cannot insert a non-DEFAULT value into column "([^"]+)"/.exec(msg))) return `A coluna ${m[1]} é numerada pelo banco (GENERATED ALWAYS AS IDENTITY). Tire ${m[1]} do INSERT e deixe o banco escolher o número.`;
+  if ((m = /value too long for type character varying\((\d+)\)/.exec(msg))) return `O texto passa do tamanho da coluna: VARCHAR(${m[1]}) guarda até ${m[1]} caracteres.`;
+  if (/numeric field overflow/.test(msg)) {
+    const d = /precision (\d+), scale (\d+)/.exec(detalhe);
+    if (!d) return 'O número não cabe na coluna.';
+    const p = Number(d[1]);
+    const s = Number(d[2]);
+    const maior = `${'9'.repeat(p - s) || '0'}${s ? `.${'9'.repeat(s)}` : ''}`;
+    return `O número não cabe na coluna: DECIMAL(${p},${s}) vai até ${maior}.`;
+  }
+  if ((m = /invalid input syntax for type ([^:]+): "(.*)"/.exec(msg))) {
+    if (/date|time/.test(m[1])) return `"${m[2]}" não é uma data que o banco entenda. Escreva a data entre aspas no formato 'AAAA-MM-DD', como '2027-04-12'.`;
+    if (/int|numeric|double|real/.test(m[1])) return `"${m[2]}" não é um número válido. Use algarismos e ponto nas casas decimais, como 8.5.`;
+    return `"${m[2]}" não é um valor válido para o tipo ${m[1]}.`;
+  }
+  if ((m = /date\/time field value out of range: "(.*)"/.exec(msg))) return `A data "${m[1]}" não existe ou está fora do formato. Escreva no formato 'AAAA-MM-DD', como '2027-04-12'.`;
+  if (/INSERT has more expressions than target columns/.test(msg)) return 'Há mais valores que colunas no INSERT. Confira as vírgulas: número decimal usa ponto (8.5), e não vírgula.';
+  if (/INSERT has more target columns than expressions/.test(msg)) return 'Há mais colunas que valores no INSERT. Cada coluna da lista precisa de um valor, na mesma ordem.';
+  if (/operator does not exist: .+ = /.test(msg)) return "Os dois lados da comparação têm tipos diferentes. Valor para coluna de texto vai entre aspas simples, como matricula = '202601'.";
+
+  // permissões
   if (estado.usuario === 'docente' && /permission denied for table|must be owner/.test(msg)) return 'O professor lê os schemas dos alunos e das duplas, mas só grava no schema docente. A tabela aluno de cada schema se recria pela administração do painel.';
   if (/must be owner of table aluno/.test(msg)) return 'A tabela aluno é do professor: você consulta e grava linhas nela, mas não altera nem apaga a tabela. Para CREATE, ALTER e DROP, use uma tabela própria, como disciplina.';
   if (/must be owner/.test(msg)) return 'Só o dono da tabela pode alterá-la ou apagá-la.';
   if (/permission denied/.test(msg)) return 'Cada aluno só trabalha no próprio schema. Escreva o nome da tabela sem prefixo.';
-  if (/unterminated quoted string/.test(msg)) return 'Falta fechar uma aspa simples.';
   return '';
 }
 
-function textoErro(e) {
+function textoErro(e, comando = '') {
   if (e && e.rede) return { msg: 'Não foi possível falar com o banco.', detalhe: '', dica: 'Confira a internet do computador. Se continuar, chame o professor.' };
   const msg = (e && e.message) ? e.message : String(e);
-  return { msg: `ERROR: ${msg}`, detalhe: (e && e.detail) ? `Detalhe: ${e.detail}` : '', dica: explicar(msg) };
+  return { msg: `ERROR: ${msg}`, detalhe: (e && e.detail) ? `Detalhe: ${e.detail}` : '', dica: explicar(msg, (e && e.detail) || '', comando) };
 }
 
 function el(tag, classe, texto) {
@@ -717,10 +828,10 @@ function mostrarResultado(bloco, r) {
   }
 }
 
-function mostrarErro(bloco, e) {
+function mostrarErro(bloco, e, comando) {
   bloco.classList.remove('esperando');
   bloco.classList.add('erro');
-  const t = textoErro(e);
+  const t = textoErro(e, comando);
   bloco.querySelector('.res').textContent = t.msg;
   if (t.detalhe) bloco.append(el('p', 'detalhe', t.detalhe));
   if (t.dica) bloco.append(el('p', 'dica-erro', t.dica));
@@ -773,7 +884,7 @@ async function executar() {
       const linhas = r.fields && r.fields.length ? r.rows.length : (['INSERT', 'UPDATE', 'DELETE'].includes(r.command) ? r.rowCount : null);
       registrar(c, true, null, linhas);
     } catch (e) {
-      mostrarErro(bloco, e);
+      mostrarErro(bloco, e, c);
       comErro.push(`${c};`);
       if (!e.rede) registrar(c, false, e.message || 'erro', null);
     }
