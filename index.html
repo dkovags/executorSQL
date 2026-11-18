@@ -67,6 +67,8 @@ input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 1
 #form-cofre { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
 .material { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-block: 12px; }
 .material a { color: var(--navy); font-weight: 700; }
+.material .baixar { height: auto; min-height: 34px; padding: 6px 12px; line-height: 1.3; white-space: normal; text-align: left; }
+@media (max-width: 700px) { .material .baixar { width: 100%; min-height: 44px; } }
 select:disabled { color: var(--cinza); background: var(--painel); }
 #g-prof { min-height: 44px; }
 .outros { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--linha); }
@@ -178,10 +180,10 @@ td.nulo { color: #8B95A5; font-style: italic; }
   </section>
 
   <section id="material" class="cartao material" hidden>
-    <span class="rotulo">Material da aula</span>
-    <button class="secundario baixar" type="button" data-arquivo="0">Atividade 1 · Diagrama de classes (PDF)</button>
-    <button class="secundario baixar" type="button" data-arquivo="1">Atividade 2 · Script no Executor de SQL (PDF)</button>
-    <button class="secundario baixar" type="button" data-arquivo="2">Atividade 3 · Diagrama de casos de uso (PDF)</button>
+    <span class="rotulo">Cadernos de atividades (PDF)</span>
+    <button class="secundario baixar" type="button" data-arquivo="0">Atividade 1 · Diagrama de classes</button>
+    <button class="secundario baixar" type="button" data-arquivo="1">Atividade 2 · <i>Script</i> no Executor</button>
+    <button class="secundario baixar" type="button" data-arquivo="2">Atividade 3 · Casos de uso</button>
     <span id="msg-material" class="dica"></span>
   </section>
 
@@ -738,7 +740,7 @@ $('form-cofre').addEventListener('submit', async (ev) => {
 // ---------------------------------------------------------------- cadernos da revisão, abertos com a chave que vem do banco
 document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', async () => {
   const item = MATERIAL[Number(b.dataset.arquivo)];
-  const texto = b.textContent;
+  const texto = b.innerHTML;
   b.disabled = true;
   b.textContent = 'Preparando...';
   $('msg-material').textContent = '';
