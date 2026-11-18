@@ -711,6 +711,7 @@ if (SEGREDO) carregarAlunos();
 $('usuario').addEventListener('change', () => {
   const prof = $('usuario').value === 'docente';
   $('campo-prof').hidden = !prof;
+  $('entrar').hidden = prof; // o professor entra pelo botão do Google, que já envia o formulário
   if (prof) desenharBotaoGoogle();
   if (['Escolha seu nome na lista.', 'Entre com a conta Google do professor.'].includes($('msg-entrada').textContent)) $('msg-entrada').hidden = true;
 });
@@ -825,6 +826,7 @@ $('trocar').addEventListener('click', () => {
   estado.nome = '';
   $('usuario').value = '';
   $('campo-prof').hidden = true;
+  $('entrar').hidden = false;
   tokenGoogle = null;
   $('status').textContent = 'Sem conexão';
   $('status').classList.remove('ligado');
