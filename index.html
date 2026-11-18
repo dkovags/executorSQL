@@ -68,7 +68,7 @@ input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 1
 .material { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-block: 12px; }
 .material a { color: var(--navy); font-weight: 700; }
 select:disabled { color: var(--cinza); background: var(--painel); }
-#chave-prof { height: 40px; width: 230px; max-width: 100%; padding: 0 10px; border: 1px solid #B8C2D3; border-radius: 4px; background: var(--branco); color: var(--tinta); font-family: var(--mono); }
+#g-prof { min-height: 44px; }
 .outros { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--linha); }
 .outros .esq { margin: 10px 0 4px; font-size: 14px; color: var(--tinta); }
 .outros .esq code { color: var(--cinza); font-size: 12.5px; margin-left: 6px; }
@@ -179,7 +179,9 @@ td.nulo { color: #8B95A5; font-style: italic; }
 
   <section id="material" class="cartao material" hidden>
     <span class="rotulo">Material da aula</span>
-    <button id="baixar" class="secundario" type="button">Baixar o projeto Java (zip)</button>
+    <button class="secundario baixar" type="button" data-arquivo="0">Atividade 1 · Diagrama de classes (PDF)</button>
+    <button class="secundario baixar" type="button" data-arquivo="1">Atividade 2 · Script no Executor de SQL (PDF)</button>
+    <button class="secundario baixar" type="button" data-arquivo="2">Atividade 3 · Diagrama de casos de uso (PDF)</button>
     <span id="msg-material" class="dica"></span>
   </section>
 
@@ -192,8 +194,8 @@ td.nulo { color: #8B95A5; font-style: italic; }
         </select>
       </div>
       <div class="campo" id="campo-prof" hidden>
-        <label for="chave-prof">Chave do professor</label>
-        <input id="chave-prof" type="password" autocomplete="off" spellcheck="false">
+        <span class="rotulo">Conta Google do professor</span>
+        <div id="g-prof"></div>
       </div>
       <button id="entrar" type="submit">Entrar</button>
     </form>
@@ -241,9 +243,18 @@ const BANCO = 'escola';
 const COFRE = { sal: 'sMIXqWkGcXICuSpbv6ofiQ==', iv: 'ay4G2/JWzmkExa8e', iteracoes: 300000, dados: 'eSBt7oxOqew5ZtQ+wmKn9dSup+nVjisONqp/ktiNOQ+ikolNXug0T81EYSIeO+PRLyC8b825sl1jE6RQXyT8' };
 let SEGREDO = null;
 let FRASE = null;
-const PACOTE = { arquivo: 'POO_Aula10_Laboratorio.zip.enc', nome: 'POO_Aula10_Laboratorio.zip', sal: 'CZs2WO1trO5dnlIYlmw2vA==', iv: 'gkW72H/vLcXtGKi4', iteracoes: 300000 };
-// O usuário docente (o professor) tem senha própria, cifrada com a chave do professor (AES-GCM).
-const COFRE_PROF = { sal: 'ovX5RsUEsF9uyqdymOjTUA==', iv: 'Z6dgUkl2guwCXdic', iteracoes: 300000, dados: 'iYunshiyI9XAJOLnZXZpwav7xSkAKfFWgOdbHqKhg+QoShXVBbrRaNftO7Fe5GvTTmdYoQc4sQ==' };
+// Cadernos de atividades da revisão para a AP2, cifrados (AES-GCM). A chave vem do banco, pela função
+// professor.chave_material(), que só o usuário turma executa: sem a chave de acesso da turma, não há como abrir.
+const MATERIAL = [
+  { arquivo: 'Revisao_AP2_Atividade_1.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_1.pdf', iv: 'vSOJNHmsWDAwtEJ6' },
+  { arquivo: 'Revisao_AP2_Atividade_2.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_2.pdf', iv: 'Hf7uBPZXKs81fj5D' },
+  { arquivo: 'Revisao_AP2_Atividade_3.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_3.pdf', iv: 'SmqkXHxGOYwT0EgK' },
+];
+// O professor entra com a conta Google (Google Identity Services). O token vai para a Data API do Neon, que confere
+// a assinatura do Google; a função painel_api.senha_docente só devolve a senha do usuário docente ao e-mail do professor.
+const GOOGLE_CLIENT_ID = '377714746724-57pabm6cvgvtijcsn7vm6u03ppjisbm5.apps.googleusercontent.com';
+const DATA_API = 'https://ep-shy-violet-b6f4h26u.apirest.c-2.sa-east-1.aws.neon.tech/escola/rest/v1';
+let tokenGoogle = null;
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrir(cofre, frase) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
@@ -674,9 +685,26 @@ if (SEGREDO) carregarAlunos();
 $('usuario').addEventListener('change', () => {
   const prof = $('usuario').value === 'docente';
   $('campo-prof').hidden = !prof;
-  if (prof) $('chave-prof').focus();
-  if (['Escolha seu nome na lista.', 'Digite a chave do professor.', 'Chave do professor incorreta.'].includes($('msg-entrada').textContent)) $('msg-entrada').hidden = true;
+  if (prof) desenharBotaoGoogle();
+  if (['Escolha seu nome na lista.', 'Entre com a conta Google do professor.'].includes($('msg-entrada').textContent)) $('msg-entrada').hidden = true;
 });
+function desenharBotaoGoogle() {
+  if (!(window.google && google.accounts && google.accounts.id)) { setTimeout(desenharBotaoGoogle, 300); return; }
+  if (!desenharBotaoGoogle.pronto) {
+    google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (r) => { tokenGoogle = r.credential; $('form-entrada').requestSubmit(); } });
+    desenharBotaoGoogle.pronto = true;
+  }
+  google.accounts.id.renderButton($('g-prof'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR' });
+}
+async function senhaDocente() {
+  let r;
+  try {
+    r = await fetch(`${DATA_API}/rpc/senha_docente`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` }, body: '{}' });
+  } catch (e) { throw new Error('Não foi possível falar com o banco.'); }
+  const corpo = await r.json().catch(() => null);
+  if (!r.ok || !corpo || !corpo.docente) { tokenGoogle = null; throw new Error('Esta conta Google não tem acesso de professor.'); }
+  return corpo.docente;
+}
 
 // ---------------------------------------------------------------- cofre
 $('form-cofre').addEventListener('submit', async (ev) => {
@@ -707,37 +735,34 @@ $('form-cofre').addEventListener('submit', async (ev) => {
   }
 });
 
-// ---------------------------------------------------------------- projeto Java, aberto com a mesma chave
-$('baixar').addEventListener('click', async () => {
-  const b = $('baixar');
+// ---------------------------------------------------------------- cadernos da revisão, abertos com a chave que vem do banco
+document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', async () => {
+  const item = MATERIAL[Number(b.dataset.arquivo)];
   const texto = b.textContent;
   b.disabled = true;
   b.textContent = 'Preparando...';
   $('msg-material').textContent = '';
   try {
-    const r = await fetch(PACOTE.arquivo, { cache: 'no-store' });
+    const k = await consultar('SELECT professor.chave_material()', 'turma', await senhaDe('turma'));
+    const r = await fetch(item.arquivo, { cache: 'no-store' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const cifrado = await r.arrayBuffer();
-    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(FRASE), 'PBKDF2', false, ['deriveKey']);
-    const chave = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: desB64(PACOTE.sal), iterations: PACOTE.iteracoes, hash: 'SHA-256' },
-      base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-    const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(PACOTE.iv) }, chave, cifrado);
-    const url = URL.createObjectURL(new Blob([claro], { type: 'application/zip' }));
+    const chave = await crypto.subtle.importKey('raw', desB64(k.rows[0][0]), 'AES-GCM', false, ['decrypt']);
+    const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(item.iv) }, chave, await r.arrayBuffer());
+    const url = URL.createObjectURL(new Blob([claro], { type: 'application/pdf' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = PACOTE.nome;
+    a.download = item.nome;
     document.body.append(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
-    $('msg-material').textContent = 'Descompactem o zip e abram a pasta no IntelliJ. O Roteiro de Atividades – JDBC está dentro do zip.';
   } catch (e) {
-    $('msg-material').textContent = 'Não consegui baixar o projeto agora. Avisem o professor.';
+    $('msg-material').textContent = 'Não consegui baixar o arquivo agora. Avise o professor.';
   } finally {
     b.disabled = false;
     b.textContent = texto;
   }
-});
+}));
 
 // ---------------------------------------------------------------- entrada
 $('form-entrada').addEventListener('submit', async (ev) => {
@@ -749,9 +774,8 @@ $('form-entrada').addEventListener('submit', async (ev) => {
   if (!usuario) { recusar('Escolha seu nome na lista.', sel); return; }
   let senha;
   if (usuario === 'docente') {
-    const chave = $('chave-prof').value;
-    if (!chave) { recusar('Digite a chave do professor.', $('chave-prof')); return; }
-    try { senha = (await abrir(COFRE_PROF, chave)).docente; } catch (e) { recusar('Chave do professor incorreta.', $('chave-prof')); return; }
+    if (!tokenGoogle) { recusar('Entre com a conta Google do professor.', $('usuario')); return; }
+    try { senha = await senhaDocente(); } catch (e) { recusar(e.message, $('usuario')); return; }
   } else {
     senha = await senhaDe(usuario);
   }
@@ -764,7 +788,6 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     estado.usuario = r.rows[0][0];
     estado.senha = senha;
     estado.nome = sel.options[sel.selectedIndex].textContent;
-    $('chave-prof').value = '';
     $('status').textContent = `${estado.nome} · ${estado.usuario}`;
     $('trocar').textContent = estado.usuario === 'docente' ? 'Trocar de usuário' : 'Trocar de aluno';
     $('status').classList.add('ligado');
@@ -790,6 +813,7 @@ $('trocar').addEventListener('click', () => {
   estado.nome = '';
   $('usuario').value = '';
   $('campo-prof').hidden = true;
+  tokenGoogle = null;
   $('status').textContent = 'Sem conexão';
   $('status').classList.remove('ligado');
   $('trabalho').hidden = true;
@@ -911,5 +935,6 @@ $('sql').addEventListener('keydown', (ev) => {
   }
 });
 </script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
