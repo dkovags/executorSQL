@@ -168,16 +168,6 @@ td.nulo { color: #8B95A5; font-style: italic; }
   <p class="vazio">Escolha seu nome e clique em Entrar para ver as tabelas e as colunas.</p>
 </aside>
 <main>
-  <section id="cofre" class="cartao" aria-labelledby="titulo-cofre">
-    <form id="form-cofre">
-      <div class="campo">
-        <label id="titulo-cofre" for="frase">Chave de Acesso da Turma</label>
-        <input id="frase" type="password" autocomplete="off" spellcheck="false">
-      </div>
-      <button id="abrir" type="submit">Desbloquear</button>
-    </form>
-    <p id="msg-cofre" class="msg" hidden></p>
-  </section>
 
   <section id="material" class="cartao material" hidden>
     <span class="rotulo">Cadernos de atividades (PDF)</span>
@@ -187,12 +177,18 @@ td.nulo { color: #8B95A5; font-style: italic; }
     <span id="msg-material" class="dica"></span>
   </section>
 
-  <section id="entrada" class="cartao" aria-labelledby="titulo-entrada" hidden>
+  <section id="entrada" class="cartao" aria-labelledby="titulo-entrada">
     <form id="form-entrada">
+      <div class="campo">
+        <label for="turma">Turma</label>
+        <select id="turma">
+          <option value="" disabled selected>Escolha a turma</option>
+        </select>
+      </div>
       <div class="campo">
         <label id="titulo-entrada" for="usuario">Aluno</label>
         <select id="usuario" disabled>
-          <option value="">Carregando a turma...</option>
+          <option value="">Escolha a turma primeiro</option>
         </select>
       </div>
       <div class="campo" id="campo-chave">
@@ -244,20 +240,15 @@ td.nulo { color: #8B95A5; font-style: italic; }
 
 <script>
 // Conversa com o Neon pela web (porta 443), com o usuário do aluno escolhido: cada aluno tem um usuário e um
-// schema próprios (aluno01 a aluno15). A lista de nomes vem do banco, lida com o usuário turma.
+// schema próprios. O aluno escolhe a turma e o nome e digita a chave dele; a senha do banco vem do cofre do aluno.
 // Cada comando vai sozinho e é gravado na hora, como no Java.
-// As senhas ficam aqui dentro, de propósito, para ninguém precisar digitar. É um banco de aula.
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
-// A senha de cada usuário sai do segredo da turma, o mesmo gravado no banco (professor.config):
-// 'npg_' + 20 caracteres do SHA-256 de "segredo:usuario" em base64 + 'Q7'. Assim um aluno novo, cadastrado no
-// Painel do Professor, já entra sem que a página precise ser gerada de novo.
-// O segredo está criptografado aqui dentro (AES-GCM). A chave de acesso da turma abre o cofre.
-const COFRE = { sal: 'sMIXqWkGcXICuSpbv6ofiQ==', iv: 'ay4G2/JWzmkExa8e', iteracoes: 300000, dados: 'eSBt7oxOqew5ZtQ+wmKn9dSup+nVjisONqp/ktiNOQ+ikolNXug0T81EYSIeO+PRLyC8b825sl1jE6RQXyT8' };
-let SEGREDO = null;
-let FRASE = null;
-// Cadernos de atividades da revisão para a AP2, cifrados (AES-GCM). A chave vem do banco, pela função
-// professor.chave_material(), que só o usuário turma executa: sem a chave de acesso da turma, não há como abrir.
+// Turmas e alunos. Cada aluno tem uma chave própria de 8 caracteres, entregue pelo professor. Ela abre o cofre do
+// aluno (AES-GCM, chave derivada por PBKDF2-SHA-256 com 600 mil iterações), que guarda a senha do usuário dele no
+// banco e a chave dos cadernos da revisão. Quem não tem a chave de um aluno não tem como entrar no schema dele.
+const TURMAS = {"POO2026.2": [{"usuario": "aluno01", "nome": "Ana", "ap2": true, "cofre": {"sal": "x0+GywdEVieTQ/sajVv7eg==", "iv": "fIwzd89t3muQthRU", "iteracoes": 600000, "dados": "KRLXMqK+3PnznHdK70Ih7iJmapoxtV4lAb71yGXYptjZPF4xbRIVWgGnm7r5aHT5S5p95S0FicgPHlwZYZPxGJK5QJYJzfd1IvNJeJ4A9MrHZHERiTkvdeetoYps6UPg6FC+RCwubcAOgwkUhjlA7mp7Lg=="}}, {"usuario": "aluno02", "nome": "Cauê", "ap2": true, "cofre": {"sal": "l/farv2PqK75CtWVmI0d1g==", "iv": "DPh0Eyj8fUpHdZCf", "iteracoes": 600000, "dados": "Z/KMmtMRCHsGQmiqpSQ8nz3DUCtTMWzSHS5PuTUVQJhFZWRdvmWUI2fIEp49bO71irmH04o0joBloYqPXbmgNWOSaf5K79crPUKW+aH+N2XW71nFICvgEms5bmZT1PqwlWkl3H9i4OB3e3KxvvrocZEcGA=="}}, {"usuario": "aluno03", "nome": "Coutinho", "ap2": true, "cofre": {"sal": "1n0BKBh2qCcAyU/c1Sp3uw==", "iv": "bDCjfHxYV6MeOEP3", "iteracoes": 600000, "dados": "863yUVttsnOaXD8z1Ls+BLDQsTz4T7XxT+29sPNDo4xFwo4+2UsgjO2QW8X23RRC/MCS8i+kmhhXuBVeWFFVeJUGJhKSaPMoxDdP/HGARk7BUTxwzYi8/qcsJIrS3RebcMD9tZU+fmxVtZFJb4KKzcFmxA=="}}, {"usuario": "aluno04", "nome": "Edgar", "ap2": true, "cofre": {"sal": "GEcCkVNs03LU4sBH5BapZA==", "iv": "3oF4/JswoJzfP8Ea", "iteracoes": 600000, "dados": "fk4v0RJaRSxjcqCj7dYqWhZNV5XNzH4M+u/GRsVos5qi72++dLCaBqdRIx6QMuwFhClIua+nkZ7Nlv9CAcWMLmQgS0Oaeb3ncCStbMqqCYStH6yoZ2aNFmlqHbQcQnXSqkZ526dRcrxfX/mkKDoX325Vtw=="}}, {"usuario": "aluno05", "nome": "Eugênio", "ap2": true, "cofre": {"sal": "/zGq5cWxTX7sGllrR73wLA==", "iv": "Yu94VNXVvBkYKiKK", "iteracoes": 600000, "dados": "n3tFaYfiMdUHAKbQWhzHB6C9jrxqw0RKClPSPLtBfp65sIu6KzyC+BVku21Igjw3C70oMOCsu5o3nfSRYckw4jPyrfKTGxAkCBjNSwe14T+hg7WbzJh1YLbdgesgo6Q3wkxZAigegMinH1n6g5oZZT2ETw=="}}, {"usuario": "aluno06", "nome": "Felippo", "ap2": true, "cofre": {"sal": "1ernTMSj0ieS4Ey6voQwkw==", "iv": "owRqgD806Xj+QaAs", "iteracoes": 600000, "dados": "vqZgKmsqLIun584yK7vgbNGDcd7oPOLwpaxG4WFJFJ7gDg79TZGgOPILRhvXR3EQ+BfEcBkx8GAqlwH+/BX0vIGTnXSxf/oOkiOeYt/Fy2H94LtaNaA1jjW8DzT/gYLlMfRnlqzMz7PhJdXz6FJkHBf+tg=="}}, {"usuario": "aluno07", "nome": "Gustavo", "ap2": true, "cofre": {"sal": "wkzHIRtqYlA+63SujbXOQQ==", "iv": "Olm+ou4koF/WbqpQ", "iteracoes": 600000, "dados": "SijuWJEkB4O3287aNYs7AgDPvLLMk8sxJrAutY3LbsPdONJF//b0VzeKr1TgkaJCQDUMRTemb3ZojE2PsosD8Ys56saPea+sLTrxKBGxSGC8xzjl0l2MnpWCgZcujwRxZSJpTGxK9Q0XyImkmgnbCi3SNA=="}}, {"usuario": "aluno08", "nome": "Henrique", "ap2": true, "cofre": {"sal": "aYK2T3vgnwgoXJDiGS5ZKA==", "iv": "R0+/TFQryMr3eA9u", "iteracoes": 600000, "dados": "auQfUWXOKLlGioo0cbZTSiT5jg/W/kUWZQmxM4nzhF50Lo8fT5c91u9oWRL+aIP1b6eD3mApnRNI2WMgfBNBrP+UNFGw6oykO8YjILPl9l3enxcs/k0YCkFgJYly1cfLCpNtfmXa1XXQFp3CI4XwuXlQZA=="}}, {"usuario": "aluno09", "nome": "João Felipe", "ap2": true, "cofre": {"sal": "1RVhJh42MNEOkN6HQvD2vg==", "iv": "RE8Jl0FSW8TZGKiH", "iteracoes": 600000, "dados": "o4LUh2hkLErPPeN5nD/PiDHMHXuYTQdFF9Na4176vnNpW7t01Z91B91HOIpbwbl3BE6mSFCV1kNmU8NO4vYTRM9kb/ONHGN/miJWb6e5u+Boaac3l/TkZm9vNHg6USOJlAK6ayL3dFYWxj9DKqrOWFuGlw=="}}, {"usuario": "aluno10", "nome": "Maeda", "ap2": true, "cofre": {"sal": "yeeWF1kE9yrR3kMY9Ofuog==", "iv": "b4AeRdZiIvHIEx6Y", "iteracoes": 600000, "dados": "cnNmqnIiswotYcrljgMvdRTL8lZaxWYEkV4IHC2MoMPuc6z925t0o7yEO/lwBmom+q9CRsl3GgHzVoT86Ge048GbZk6hdrir8U45uzH31wnBzX9nvZbRh1iVZPWbc7ldEdAQnTXKrnOBbUEZ55IX8Ootww=="}}, {"usuario": "aluno11", "nome": "Milagres", "ap2": true, "cofre": {"sal": "AMd2xufFh5cxm9qeCUwhpg==", "iv": "IQdL1Wyyp2i9cVQq", "iteracoes": 600000, "dados": "EHCu7JSVNNJ0ZQDPfsWcmioSldTatXm3buiY/lSdE1ZUiztaew+Z/rhqc37QSnTrMCzPVk02r0w5vU+J27glT/JTr31VexnAwZHYPZd9OhjtVQcwpiRl1fRkwooqBB64uBvAfh4YjpBZGdqxjF6aCZpkjQ=="}}, {"usuario": "aluno12", "nome": "Simões", "ap2": true, "cofre": {"sal": "UJ1+p+fJmHSpbiJP1GkY2Q==", "iv": "1BBopqsLVQ6tYg4t", "iteracoes": 600000, "dados": "SGkfGHCT6jjDHc/V/w5EqTkKU/dxoyDtjE4OaN2SneWdvvNaiifdwUmvomleOUl64WhGJNwy0K2ze9ewhs7mSEUkJ5ntvf7UZVzRgQgjBXkPQcRgPUb6MXMeoM/n0kLvcvutoaSVJBphlc0EWUPANYSraQ=="}}]};
+// Cadernos de atividades da revisão para a AP2, cifrados (AES-GCM). A chave vem do cofre de cada aluno.
 const MATERIAL = [
   { arquivo: 'Revisao_AP2_Atividade_1.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_1.pdf', iv: 'vSOJNHmsWDAwtEJ6' },
   { arquivo: 'Revisao_AP2_Atividade_2.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_2.pdf', iv: 'Hf7uBPZXKs81fj5D' },
@@ -277,11 +268,7 @@ async function abrir(cofre, frase) {
   const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(cofre.iv) }, chave, desB64(cofre.dados));
   return JSON.parse(new TextDecoder().decode(claro));
 }
-async function senhaDe(usuario) {
-  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${SEGREDO}:${usuario}`)));
-  return `npg_${btoa(String.fromCharCode(...d)).replace(/[+/=]/g, '').slice(0, 20)}Q7`;
-}
-const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: null };
+const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: null, material: null };
 const $ = (id) => document.getElementById(id);
 
 // divide o texto em comandos pelo ";", sem cortar dentro de aspas nem de comentários
@@ -680,45 +667,36 @@ async function atualizarLateral() {
   }
 }
 
-// A lista vem do cadastro da turma no banco (Painel do Professor), em ordem alfabética, e termina no professor
-async function carregarAlunos() {
+// A lista vem de TURMAS, em ordem alfabética, e termina no professor
+function carregarAlunos(turma) {
   const sel = $('usuario');
-  const aviso = $('msg-entrada');
   const opcao = (texto, valor) => { const o = el('option', '', texto); o.value = valor; return o; };
-  sel.disabled = true;
-  sel.replaceChildren(opcao('Carregando a turma...', ''));
-  let lista = null;
-  try {
-    const r = await consultar('SELECT usuario, nome FROM professor.turma_alunos()', 'turma', await senhaDe('turma'));
-    lista = r.rows.map(([usuario, nome]) => ({ usuario, nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-  } catch (e) { lista = null; }
-  if (!lista) {
-    sel.replaceChildren(opcao('Turma indisponível', ''));
-    aviso.className = 'msg';
-    aviso.textContent = 'Não consegui ler a lista da turma. Confira a internet e recarregue a página.';
-    aviso.hidden = false;
-    return;
-  }
+  const lista = [...(TURMAS[turma] || [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   const primeira = opcao('Escolha seu nome', '');
   primeira.disabled = true;
-  const turma = el('optgroup');
-  turma.label = 'Turma';
-  turma.append(...lista.map((a) => opcao(a.nome, a.usuario)));
+  const grupo = el('optgroup');
+  grupo.label = turma;
+  grupo.append(...lista.map((a) => opcao(a.nome, a.usuario)));
   const prof = el('optgroup');
   prof.label = 'Professor';
   prof.append(opcao('Professor', 'docente'));
-  sel.replaceChildren(primeira, ...(lista.length ? [turma] : []), prof);
+  sel.replaceChildren(primeira, grupo, prof);
   sel.value = '';
   sel.disabled = false;
-  if (!lista.length) {
-    aviso.className = 'msg';
-    aviso.textContent = 'A turma ainda não foi cadastrada no banco. Avise o professor.';
-    aviso.hidden = false;
-  } else if (aviso.textContent.startsWith('Não consegui ler a lista') || aviso.textContent.startsWith('A turma ainda')) {
-    aviso.hidden = true;
-  }
 }
-if (SEGREDO) carregarAlunos();
+const alunoDe = (usuario) => (TURMAS[$('turma').value] || []).find((a) => a.usuario === usuario);
+Object.keys(TURMAS).forEach((t) => { const o = el('option', '', t); o.value = t; $('turma').append(o); });
+$('turma').addEventListener('change', () => {
+  carregarAlunos($('turma').value);
+  document.querySelector('.corpo').classList.remove('trancado');
+  $('lateral').hidden = false;
+  $('exemplos').hidden = false;
+  $('campo-prof').hidden = true;
+  $('campo-chave').hidden = false;
+  $('entrar').hidden = false;
+  $('msg-entrada').hidden = true;
+  $('usuario').focus();
+});
 $('usuario').addEventListener('change', () => {
   const prof = $('usuario').value === 'docente';
   $('campo-prof').hidden = !prof;
@@ -736,36 +714,7 @@ function desenharBotaoGoogle() {
   google.accounts.id.renderButton($('g-prof'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR' });
 }
 
-// ---------------------------------------------------------------- cofre
-$('form-cofre').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const aviso = $('msg-cofre');
-  const frase = $('frase').value.trim();
-  if (!frase) { aviso.className = 'msg'; aviso.textContent = 'Digite a chave de acesso da turma.'; aviso.hidden = false; return; }
-  $('abrir').disabled = true;
-  aviso.className = 'msg info';
-  aviso.textContent = 'Abrindo...';
-  aviso.hidden = false;
-  try {
-    SEGREDO = (await abrir(COFRE, frase)).segredo;
-    FRASE = frase;
-    carregarAlunos();
-    $('material').hidden = false;
-    $('cofre').hidden = true;
-    $('lateral').hidden = false;
-    $('exemplos').hidden = false;
-    document.querySelector('.corpo').classList.remove('trancado');
-    $('entrada').hidden = false;
-    $('usuario').focus();
-  } catch (e) {
-    aviso.className = 'msg';
-    aviso.textContent = window.crypto && crypto.subtle ? 'Chave de acesso incorreta.' : 'Este navegador não consegue abrir o cofre. Use o Chrome, o Edge ou o Firefox atualizados.';
-  } finally {
-    $('abrir').disabled = false;
-  }
-});
-
-// ---------------------------------------------------------------- cadernos da revisão, abertos com a chave que vem do banco
+// ---------------------------------------------------------------- cadernos da revisão, abertos com a chave que vem do cofre do aluno
 document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', async () => {
   const item = MATERIAL[Number(b.dataset.arquivo)];
   const texto = b.innerHTML;
@@ -773,10 +722,10 @@ document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', 
   b.textContent = 'Preparando...';
   $('msg-material').textContent = '';
   try {
-    const k = await consultar('SELECT professor.chave_material()', 'turma', await senhaDe('turma'));
+    if (!estado.material) throw new Error('sem chave');
     const r = await fetch(item.arquivo, { cache: 'no-store' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const chave = await crypto.subtle.importKey('raw', desB64(k.rows[0][0]), 'AES-GCM', false, ['decrypt']);
+    const chave = await crypto.subtle.importKey('raw', desB64(estado.material), 'AES-GCM', false, ['decrypt']);
     const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(item.iv) }, chave, await r.arrayBuffer());
     const url = URL.createObjectURL(new Blob([claro], { type: 'application/pdf' }));
     const a = document.createElement('a');
@@ -854,7 +803,8 @@ $('form-entrada').addEventListener('submit', async (ev) => {
   if (usuario === 'docente' && !tokenGoogle) { recusar('Entre com a conta Google do professor.', sel); return; }
   const chave = usuario === 'docente' ? null : normChave($('chave-aluno').value);
   if (usuario !== 'docente' && !chave) { recusar('Digite a sua chave de aluno.', $('chave-aluno')); return; }
-  const senha = usuario === 'docente' ? null : await senhaDe(usuario);
+  let senha = null;
+  let material = null;
   $('entrar').disabled = true;
   aviso.className = 'msg info';
   aviso.textContent = usuario === 'docente' ? 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.' : 'Conferindo a chave e conectando ao banco. Pode levar alguns segundos.';
@@ -862,9 +812,16 @@ $('form-entrada').addEventListener('submit', async (ev) => {
   try {
     let temAp2 = false;
     if (usuario !== 'docente') {
-      const t = await abrirAp2(usuario, chave, 'correcao');
-      if (t.errada) { aviso.className = 'msg'; aviso.textContent = 'Chave incorreta para este aluno. Confira o nome escolhido e a chave entregue pelo professor.'; $('chave-aluno').focus(); return; }
-      temAp2 = !t.falta;
+      const a = alunoDe(usuario);
+      try {
+        ({ senha, material } = await abrir(a.cofre, chave));
+      } catch (e) {
+        aviso.className = 'msg';
+        aviso.textContent = window.crypto && crypto.subtle ? 'Chave incorreta para este aluno. Confira o nome escolhido e a chave entregue pelo professor.' : 'Este navegador não consegue conferir a chave. Use o Chrome, o Edge ou o Firefox atualizados.';
+        $('chave-aluno').focus();
+        return;
+      }
+      temAp2 = Boolean(a.ap2);
     }
     const r = await consultar('SELECT current_user', usuario, senha);
     estado.usuario = usuario === 'docente' ? 'docente' : r.rows[0][0];
@@ -879,6 +836,8 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     if (!$('historico').children.length) $('historico').append(el('p', 'vazio', 'Os comandos executados aparecem aqui, os mais recentes em cima.'));
     aviso.hidden = true;
     estado.chave = temAp2 ? chave : null;
+    estado.material = material;
+    $('material').hidden = usuario === 'docente';
     $('chave-aluno').value = '';
     $('msg-ap2').textContent = '';
     $('ap2').hidden = !temAp2;
@@ -906,7 +865,9 @@ $('trocar').addEventListener('click', () => {
   $('trabalho').hidden = true;
   $('historico').hidden = true;
   $('ap2').hidden = true;
+  $('material').hidden = true;
   estado.chave = null;
+  estado.material = null;
   $('chave-aluno').value = '';
   $('campo-chave').hidden = false;
   $('msg-ap2').textContent = '';
