@@ -69,7 +69,7 @@ input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 1
 .material a { color: var(--navy); font-weight: 700; }
 #g-prof { min-height: 44px; }
 .material .baixar, .material .baixar-ap2 { height: auto; min-height: 34px; padding: 6px 12px; line-height: 1.3; white-space: normal; text-align: left; }
-@media (max-width: 700px) { .material .baixar, .material .baixar-ap2, #chave-ap2 { width: 100%; min-height: 44px; } }
+@media (max-width: 700px) { .material .baixar, .material .baixar-ap2 { width: 100%; min-height: 44px; } }
 select:disabled { color: var(--cinza); background: var(--painel); }
 .outros { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--linha); }
 .outros .esq { margin: 10px 0 4px; font-size: 14px; color: var(--tinta); }
@@ -171,7 +171,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
   <section id="cofre" class="cartao" aria-labelledby="titulo-cofre">
     <form id="form-cofre">
       <div class="campo">
-        <label id="titulo-cofre" for="frase">Chave de Acesso da Turma ou da AP2</label>
+        <label id="titulo-cofre" for="frase">Chave de Acesso da Turma</label>
         <input id="frase" type="password" autocomplete="off" spellcheck="false">
       </div>
       <button id="abrir" type="submit">Desbloquear</button>
@@ -194,6 +194,10 @@ td.nulo { color: #8B95A5; font-style: italic; }
         <select id="usuario" disabled>
           <option value="">Carregando a turma...</option>
         </select>
+      </div>
+      <div class="campo" id="campo-chave">
+        <label for="chave-aluno">Chave do aluno</label>
+        <input id="chave-aluno" type="password" autocomplete="off" spellcheck="false" maxlength="8">
       </div>
       <div class="campo" id="campo-prof" hidden>
         <span class="rotulo">Conta Google do professor</span>
@@ -222,8 +226,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
   </section>
 
   <section id="ap2" class="cartao material" hidden>
-    <span class="rotulo">AP2 · Prova e correção</span>
-    <input id="chave-ap2" type="password" autocomplete="off" spellcheck="false" placeholder="Chave de acesso da AP2" aria-label="Chave de acesso da AP2">
+    <span class="rotulo">AP2 · Prova e correção (PDF)</span>
     <button class="secundario baixar-ap2" type="button" data-tipo="prova">Minha prova (caderno de questões)</button>
     <button class="secundario baixar-ap2" type="button" data-tipo="correcao">Correção individualizada</button>
     <span id="msg-ap2" class="dica"></span>
@@ -278,7 +281,7 @@ async function senhaDe(usuario) {
   const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${SEGREDO}:${usuario}`)));
   return `npg_${btoa(String.fromCharCode(...d)).replace(/[+/=]/g, '').slice(0, 20)}Q7`;
 }
-const estado = { usuario: null, senha: null, nome: '', ocupado: false };
+const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: null };
 const $ = (id) => document.getElementById(id);
 
 // divide o texto em comandos pelo ";", sem cortar dentro de aspas nem de comentários
@@ -719,6 +722,7 @@ if (SEGREDO) carregarAlunos();
 $('usuario').addEventListener('change', () => {
   const prof = $('usuario').value === 'docente';
   $('campo-prof').hidden = !prof;
+  $('campo-chave').hidden = prof;
   $('entrar').hidden = prof; // o professor entra pelo botão do Google, que já envia o formulário
   if (prof) desenharBotaoGoogle();
   if (['Escolha seu nome na lista.', 'Entre com a conta Google do professor.'].includes($('msg-entrada').textContent)) $('msg-entrada').hidden = true;
@@ -739,16 +743,12 @@ $('form-cofre').addEventListener('submit', async (ev) => {
   const frase = $('frase').value.trim();
   if (!frase) { aviso.className = 'msg'; aviso.textContent = 'Digite a chave de acesso da turma.'; aviso.hidden = false; return; }
   $('abrir').disabled = true;
-  if (ap2Fixo) { ap2Fixo = null; $('ap2').hidden = true; $('chave-ap2').hidden = false; }
   aviso.className = 'msg info';
   aviso.textContent = 'Abrindo...';
   aviso.hidden = false;
   try {
     SEGREDO = (await abrir(COFRE, frase)).segredo;
     FRASE = frase;
-    ap2Fixo = null;
-    $('chave-ap2').hidden = false;
-    $('ap2').hidden = true;
     carregarAlunos();
     $('material').hidden = false;
     $('cofre').hidden = true;
@@ -758,17 +758,6 @@ $('form-cofre').addEventListener('submit', async (ev) => {
     $('entrada').hidden = false;
     $('usuario').focus();
   } catch (e) {
-    const ap2 = window.crypto && crypto.subtle ? await schemaDaChaveAp2(normAp2(frase)) : null;
-    if (ap2) {
-      ap2Fixo = { schema: ap2, frase: normAp2(frase) };
-      $('chave-ap2').hidden = true;
-      $('msg-ap2').textContent = '';
-      $('ap2').hidden = false;
-      aviso.className = 'msg info';
-      aviso.textContent = 'Chave da AP2 reconhecida. Baixe a sua prova e a correção no quadro abaixo. Para usar o Executor, digite aqui a chave de acesso da turma.';
-      $('frase').value = '';
-      return;
-    }
     aviso.className = 'msg';
     aviso.textContent = window.crypto && crypto.subtle ? 'Chave de acesso incorreta.' : 'Este navegador não consegue abrir o cofre. Use o Chrome, o Edge ou o Firefox atualizados.';
   } finally {
@@ -805,49 +794,40 @@ document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', 
   }
 }));
 
-// ---------------------------------------------------------------- AP2: prova e correção de cada aluno
-// Cada schema de aluno tem os seus dois arquivos: ap2/alunoNN_prova.pdf.enc (o caderno de questões do tipo de
-// prova que o aluno fez) e ap2/alunoNN_correcao.pdf.enc (a correção individualizada),
-// cifrados com AES-GCM. A chave AES sai da chave de acesso da AP2 do aluno, entregue pelo professor, por
-// PBKDF2-SHA-256 com 300 mil iterações. O arquivo traz o sal (16 bytes) e o IV (12 bytes) antes do conteúdo.
-// A chave da AP2 também funciona na primeira tela, no lugar da chave da turma: o índice abaixo guarda só o
-// SHA-256 de "ap2:" + chave, que aponta o schema do aluno sem revelar a chave.
-const AP2_IDX = {"8b18d962d5f34d08640805e1ada3eec105ef08f2a291fc37ccaf60c2bb84e180": "aluno01", "e42e990a534db5cceedd4eaec1872fd9f7142ed333211d0ffba515f001fd8a91": "aluno02", "f869d8a72621d686de439a9d7aeec06242a77acde1afd69923d096c18ba500a1": "aluno03", "7bf1d0db0d05e266acaa7616f11b16b17db7297da2b33d991abcff30e3b51e17": "aluno04", "0c5797e6512e7c51041318c92cbf7118f53de2c2f92ff20ce41c15786793171d": "aluno05", "776db6a7dd64e02a624d46a504889bc0ecf32c92b7ccd60eaa84e90690dd3253": "aluno06", "780a1bea54ab6bb893590727231be6abfe4d38bb49afca76abf4637fdd935e8e": "aluno07", "d00a33de7c9cca6db619ce8075d2e30629d1544240877ef1acdc85fc518b582f": "aluno08", "c9c924b17b41e26e308046cbc89ad49363431703fc893f1910ba520bfcbcbc40": "aluno09", "1ae7079bee280bef53fd32726dc7fddbcfeede36b1a6367bee5df2209e763055": "aluno10", "6054bdbef184d01cacf4af7e62d87c2b1db4df4de565f5b56e6554605f4deb15": "aluno11", "7818d9bace639eef254433c1d8cfe5f2a825ba5d1504b2d01968021e26f65ebb": "aluno12"};
-const normAp2 = (t) => t.toUpperCase().replace(/[\s-]/g, '');
-let ap2Fixo = null;
-async function schemaDaChaveAp2(frase) {
-  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`ap2:${frase}`)));
-  return AP2_IDX[[...d].map((x) => x.toString(16).padStart(2, '0')).join('')] || null;
+// ---------------------------------------------------------------- chave do aluno e arquivos da AP2
+// Cada schema de aluno tem uma chave própria de 8 caracteres (hexadecimais e especiais), entregue pelo professor
+// e digitada junto com o nome. A chave abre os dois arquivos do aluno: ap2/alunoNN_prova.pdf.enc (o caderno de
+// questões do tipo de prova que ele fez) e ap2/alunoNN_correcao.pdf.enc (a correção individualizada), cifrados
+// com AES-GCM. A chave AES sai da chave do aluno por PBKDF2-SHA-256 com 600 mil iterações; o arquivo traz o sal
+// (16 bytes) e o IV (12 bytes) antes do conteúdo. A página não guarda nenhuma cópia da chave.
+const ITERACOES_AP2 = 600000;
+const normChave = (t) => t.trim().toLowerCase();
+async function abrirAp2(usuario, chave, tipo) {
+  const r = await fetch(`ap2/${usuario}_${tipo}.pdf.enc`, { cache: 'no-store' });
+  if (r.status === 404) return { falta: true };
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const bruto = new Uint8Array(await r.arrayBuffer());
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(chave), 'PBKDF2', false, ['deriveKey']);
+  const k = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: bruto.slice(0, 16), iterations: ITERACOES_AP2, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  try {
+    return { claro: await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bruto.slice(16, 28) }, k, bruto.slice(28)) };
+  } catch (e) {
+    return { errada: true };
+  }
 }
 document.querySelectorAll('.baixar-ap2').forEach((b) => b.addEventListener('click', async () => {
   const msg = $('msg-ap2');
-  const frase = ap2Fixo ? ap2Fixo.frase : normAp2($('chave-ap2').value);
   msg.textContent = '';
-  if (!frase) { msg.textContent = 'Digite a sua chave de acesso da AP2.'; $('chave-ap2').focus(); return; }
-  let schema = ap2Fixo ? ap2Fixo.schema : estado.usuario;
-  if (!schema || schema === 'docente') return;
-  const dono = await schemaDaChaveAp2(frase);
-  if (dono && dono !== schema) schema = dono; // a chave manda: abre os arquivos do aluno dono da chave
-  if (!dono) { msg.textContent = 'Chave da AP2 incorreta. Confira a chave entregue pelo professor.'; return; }
+  if (!estado.usuario || !estado.chave) return;
   const texto = b.textContent;
   b.disabled = true;
   b.textContent = 'Preparando...';
   try {
-    const r = await fetch(`ap2/${schema}_${b.dataset.tipo}.pdf.enc`, { cache: 'no-store' });
-    if (r.status === 404) { msg.textContent = 'Não há prova da AP2 registrada para este aluno.'; return; }
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const bruto = new Uint8Array(await r.arrayBuffer());
-    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
-    const chave = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: bruto.slice(0, 16), iterations: 300000, hash: 'SHA-256' },
-      base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-    let claro;
-    try {
-      claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bruto.slice(16, 28) }, chave, bruto.slice(28));
-    } catch (e) {
-      msg.textContent = 'Chave da AP2 incorreta. Confira a chave entregue pelo professor.';
-      return;
-    }
-    const url = URL.createObjectURL(new Blob([claro], { type: 'application/pdf' }));
+    const r = await abrirAp2(estado.usuario, estado.chave, b.dataset.tipo);
+    if (r.falta) { msg.textContent = 'Não há prova da AP2 registrada para este aluno.'; return; }
+    if (r.errada) { msg.textContent = 'A chave não abre este arquivo. Avise o professor.'; return; }
+    const url = URL.createObjectURL(new Blob([r.claro], { type: 'application/pdf' }));
     const a = document.createElement('a');
     a.href = url;
     a.download = b.dataset.tipo === 'prova' ? 'POO_AP2_2026_2_Caderno_de_Questoes.pdf' : 'POO_AP2_2026_2_Correcao_Individualizada.pdf';
@@ -862,7 +842,6 @@ document.querySelectorAll('.baixar-ap2').forEach((b) => b.addEventListener('clic
     b.textContent = texto;
   }
 }));
-$('chave-ap2').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') document.querySelector('.baixar-ap2[data-tipo="correcao"]').click(); });
 
 // ---------------------------------------------------------------- entrada
 $('form-entrada').addEventListener('submit', async (ev) => {
@@ -873,12 +852,20 @@ $('form-entrada').addEventListener('submit', async (ev) => {
   const recusar = (texto, campo) => { aviso.className = 'msg'; aviso.textContent = texto; aviso.hidden = false; campo.focus(); };
   if (!usuario) { recusar('Escolha seu nome na lista.', sel); return; }
   if (usuario === 'docente' && !tokenGoogle) { recusar('Entre com a conta Google do professor.', sel); return; }
+  const chave = usuario === 'docente' ? null : normChave($('chave-aluno').value);
+  if (usuario !== 'docente' && !chave) { recusar('Digite a sua chave de aluno.', $('chave-aluno')); return; }
   const senha = usuario === 'docente' ? null : await senhaDe(usuario);
   $('entrar').disabled = true;
   aviso.className = 'msg info';
-  aviso.textContent = 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.';
+  aviso.textContent = usuario === 'docente' ? 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.' : 'Conferindo a chave e conectando ao banco. Pode levar alguns segundos.';
   aviso.hidden = false;
   try {
+    let temAp2 = false;
+    if (usuario !== 'docente') {
+      const t = await abrirAp2(usuario, chave, 'correcao');
+      if (t.errada) { aviso.className = 'msg'; aviso.textContent = 'Chave incorreta para este aluno. Confira o nome escolhido e a chave entregue pelo professor.'; $('chave-aluno').focus(); return; }
+      temAp2 = !t.falta;
+    }
     const r = await consultar('SELECT current_user', usuario, senha);
     estado.usuario = usuario === 'docente' ? 'docente' : r.rows[0][0];
     estado.senha = senha;
@@ -891,9 +878,10 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     $('historico').hidden = false;
     if (!$('historico').children.length) $('historico').append(el('p', 'vazio', 'Os comandos executados aparecem aqui, os mais recentes em cima.'));
     aviso.hidden = true;
-    $('chave-ap2').value = '';
+    estado.chave = temAp2 ? chave : null;
+    $('chave-aluno').value = '';
     $('msg-ap2').textContent = '';
-    $('ap2').hidden = estado.usuario === 'docente';
+    $('ap2').hidden = !temAp2;
     atualizarLateral();
     $('sql').focus();
   } catch (e) {
@@ -918,7 +906,9 @@ $('trocar').addEventListener('click', () => {
   $('trabalho').hidden = true;
   $('historico').hidden = true;
   $('ap2').hidden = true;
-  $('chave-ap2').value = '';
+  estado.chave = null;
+  $('chave-aluno').value = '';
+  $('campo-chave').hidden = false;
   $('msg-ap2').textContent = '';
   $('historico').replaceChildren();
   atualizarLateral();
