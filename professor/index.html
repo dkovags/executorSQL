@@ -123,6 +123,8 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
 .vaga span { flex: none; width: 60px; font: 13px/1 var(--mono); color: var(--muted); }
 .vaga button { flex: none; height: 34px; min-width: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); color: var(--muted); font-weight: 700; cursor: pointer; }
 .vaga button:hover { color: var(--err); border-color: var(--err); }
+.vaga button.senha { font-weight: 600; color: var(--ink, #1f2a2e); }
+.vaga button.senha:hover { color: var(--accent, #0f2b5b); border-color: currentColor; }
 .vaga button.confirmar { background: var(--err); border-color: var(--err); color: var(--card); }
 #turma-msg { flex: 1 1 100%; margin: 4px 0 0; }
 .script { flex: 1 1 100%; display: grid; gap: 8px; min-width: 0; }
@@ -378,7 +380,7 @@ window.claude = {
           }
           let r;
           try {
-            const acao = ['painel', 'definir_turma', 'remover_vaga', 'executar_script', 'definir_duplas', 'recriar_aluno', 'apagar_tabelas', 'apagar_registros'].includes(entrada.acao) ? entrada.acao : 'painel';
+            const acao = ['painel', 'definir_turma', 'remover_vaga', 'redefinir_senha', 'executar_script', 'definir_duplas', 'recriar_aluno', 'apagar_tabelas', 'apagar_registros'].includes(entrada.acao) ? entrada.acao : 'painel';
             const corpoPedido = entrada.args || {};
             r = await fetch(`${DATA_API}/rpc/${acao}`, {
               method: 'POST',
@@ -695,8 +697,41 @@ function linhaDeVaga(k, nome, existe) {
   tirar.title = `Remover a vaga ${u}`;
   tirar.setAttribute('aria-label', `Remover a vaga ${u}`);
   tirar.addEventListener('click', (ev) => { ev.preventDefault(); removerVaga(k, existe, linha, tirar); });
-  linha.append(el('span', '', u), campo, tirar);
+  const chave = el('button', 'senha', 'Senha');
+  chave.type = 'button';
+  chave.title = `Gerar uma senha provisória nova para ${u}`;
+  chave.setAttribute('aria-label', `Gerar uma senha provisória nova para ${u}`);
+  chave.hidden = !existe || !nome;
+  chave.addEventListener('click', (ev) => { ev.preventDefault(); redefinirSenha(k, chave); });
+  linha.append(el('span', '', u), campo, chave, tirar);
   return linha;
+}
+
+// Senha provisória nova: o aluno entra com ela no Executor e cria a senha dele. Pede confirmação, porque a senha
+// atual do aluno deixa de valer.
+async function redefinirSenha(k, botao) {
+  const u = `aluno${String(k).padStart(2, '0')}`;
+  if (!botao.classList.contains('confirmar')) {
+    botao.classList.add('confirmar');
+    botao.textContent = 'Gerar?';
+    turmaMsg(`Clique de novo em "Gerar?" para criar uma senha provisória para ${u}. A senha atual do aluno deixa de valer.`);
+    setTimeout(() => {
+      if (botao.isConnected && botao.classList.contains('confirmar') && !botao.disabled) { botao.classList.remove('confirmar'); botao.textContent = 'Senha'; turmaMsg(''); }
+    }, 8000);
+    return;
+  }
+  botao.disabled = true;
+  turmaMsg(`Gerando a senha provisória de ${u}...`);
+  try {
+    const r = await executarAdmin('redefinir_senha', { p_n: k }, `SELECT professor.admin_redefinir_senha(${Number(k)}) AS r`);
+    turmaMsg(`Senha provisória de ${r.nome} (${r.usuario}): ${r.provisoria}. Entregue ao aluno: no primeiro acesso ao Executor ele cria a senha dele.`);
+  } catch (e) {
+    turmaMsg(textoDoErro(e), true);
+  } finally {
+    botao.disabled = false;
+    botao.classList.remove('confirmar');
+    botao.textContent = 'Senha';
+  }
 }
 
 // Vaga ainda não salva só sai da tela. Vaga do banco pede confirmação e apaga usuário, schema e histórico.

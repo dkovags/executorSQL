@@ -192,8 +192,16 @@ td.nulo { color: #8B95A5; font-style: italic; }
         </select>
       </div>
       <div class="campo" id="campo-chave">
-        <label for="chave-aluno">Chave do aluno</label>
-        <input id="chave-aluno" type="password" autocomplete="off" spellcheck="false" maxlength="8">
+        <label for="chave-aluno">Senha</label>
+        <input id="chave-aluno" type="password" autocomplete="current-password" spellcheck="false" maxlength="64">
+      </div>
+      <div class="campo" id="campo-nova" hidden>
+        <label for="nova-senha">Nova senha</label>
+        <input id="nova-senha" type="password" autocomplete="new-password" spellcheck="false" maxlength="64">
+      </div>
+      <div class="campo" id="campo-confirma" hidden>
+        <label for="confirma-senha">Repita a nova senha</label>
+        <input id="confirma-senha" type="password" autocomplete="new-password" spellcheck="false" maxlength="64">
       </div>
       <div class="campo" id="campo-prof" hidden>
         <span class="rotulo">Conta Google do professor</span>
@@ -244,11 +252,14 @@ td.nulo { color: #8B95A5; font-style: italic; }
 // Cada comando vai sozinho e é gravado na hora, como no Java.
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
-// Turmas e alunos. Cada aluno tem uma chave própria de 8 caracteres, entregue pelo professor. Ela abre o cofre do
-// aluno (AES-GCM, chave derivada por PBKDF2-SHA-256 com 600 mil iterações), que guarda a senha do usuário dele no
-// banco e a chave dos cadernos da revisão. Quem não tem a chave de um aluno não tem como entrar no schema dele.
-const TURMAS = {"POO2026.2": [{"usuario": "aluno01", "nome": "Ana", "ap2": true, "cofre": {"sal": "x0+GywdEVieTQ/sajVv7eg==", "iv": "fIwzd89t3muQthRU", "iteracoes": 600000, "dados": "KRLXMqK+3PnznHdK70Ih7iJmapoxtV4lAb71yGXYptjZPF4xbRIVWgGnm7r5aHT5S5p95S0FicgPHlwZYZPxGJK5QJYJzfd1IvNJeJ4A9MrHZHERiTkvdeetoYps6UPg6FC+RCwubcAOgwkUhjlA7mp7Lg=="}}, {"usuario": "aluno02", "nome": "Cauê", "ap2": true, "cofre": {"sal": "l/farv2PqK75CtWVmI0d1g==", "iv": "DPh0Eyj8fUpHdZCf", "iteracoes": 600000, "dados": "Z/KMmtMRCHsGQmiqpSQ8nz3DUCtTMWzSHS5PuTUVQJhFZWRdvmWUI2fIEp49bO71irmH04o0joBloYqPXbmgNWOSaf5K79crPUKW+aH+N2XW71nFICvgEms5bmZT1PqwlWkl3H9i4OB3e3KxvvrocZEcGA=="}}, {"usuario": "aluno03", "nome": "Coutinho", "ap2": true, "cofre": {"sal": "1n0BKBh2qCcAyU/c1Sp3uw==", "iv": "bDCjfHxYV6MeOEP3", "iteracoes": 600000, "dados": "863yUVttsnOaXD8z1Ls+BLDQsTz4T7XxT+29sPNDo4xFwo4+2UsgjO2QW8X23RRC/MCS8i+kmhhXuBVeWFFVeJUGJhKSaPMoxDdP/HGARk7BUTxwzYi8/qcsJIrS3RebcMD9tZU+fmxVtZFJb4KKzcFmxA=="}}, {"usuario": "aluno04", "nome": "Edgar", "ap2": true, "cofre": {"sal": "GEcCkVNs03LU4sBH5BapZA==", "iv": "3oF4/JswoJzfP8Ea", "iteracoes": 600000, "dados": "fk4v0RJaRSxjcqCj7dYqWhZNV5XNzH4M+u/GRsVos5qi72++dLCaBqdRIx6QMuwFhClIua+nkZ7Nlv9CAcWMLmQgS0Oaeb3ncCStbMqqCYStH6yoZ2aNFmlqHbQcQnXSqkZ526dRcrxfX/mkKDoX325Vtw=="}}, {"usuario": "aluno05", "nome": "Eugênio", "ap2": true, "cofre": {"sal": "/zGq5cWxTX7sGllrR73wLA==", "iv": "Yu94VNXVvBkYKiKK", "iteracoes": 600000, "dados": "n3tFaYfiMdUHAKbQWhzHB6C9jrxqw0RKClPSPLtBfp65sIu6KzyC+BVku21Igjw3C70oMOCsu5o3nfSRYckw4jPyrfKTGxAkCBjNSwe14T+hg7WbzJh1YLbdgesgo6Q3wkxZAigegMinH1n6g5oZZT2ETw=="}}, {"usuario": "aluno06", "nome": "Felippo", "ap2": true, "cofre": {"sal": "1ernTMSj0ieS4Ey6voQwkw==", "iv": "owRqgD806Xj+QaAs", "iteracoes": 600000, "dados": "vqZgKmsqLIun584yK7vgbNGDcd7oPOLwpaxG4WFJFJ7gDg79TZGgOPILRhvXR3EQ+BfEcBkx8GAqlwH+/BX0vIGTnXSxf/oOkiOeYt/Fy2H94LtaNaA1jjW8DzT/gYLlMfRnlqzMz7PhJdXz6FJkHBf+tg=="}}, {"usuario": "aluno07", "nome": "Gustavo", "ap2": true, "cofre": {"sal": "wkzHIRtqYlA+63SujbXOQQ==", "iv": "Olm+ou4koF/WbqpQ", "iteracoes": 600000, "dados": "SijuWJEkB4O3287aNYs7AgDPvLLMk8sxJrAutY3LbsPdONJF//b0VzeKr1TgkaJCQDUMRTemb3ZojE2PsosD8Ys56saPea+sLTrxKBGxSGC8xzjl0l2MnpWCgZcujwRxZSJpTGxK9Q0XyImkmgnbCi3SNA=="}}, {"usuario": "aluno08", "nome": "Henrique", "ap2": true, "cofre": {"sal": "aYK2T3vgnwgoXJDiGS5ZKA==", "iv": "R0+/TFQryMr3eA9u", "iteracoes": 600000, "dados": "auQfUWXOKLlGioo0cbZTSiT5jg/W/kUWZQmxM4nzhF50Lo8fT5c91u9oWRL+aIP1b6eD3mApnRNI2WMgfBNBrP+UNFGw6oykO8YjILPl9l3enxcs/k0YCkFgJYly1cfLCpNtfmXa1XXQFp3CI4XwuXlQZA=="}}, {"usuario": "aluno09", "nome": "João Felipe", "ap2": true, "cofre": {"sal": "1RVhJh42MNEOkN6HQvD2vg==", "iv": "RE8Jl0FSW8TZGKiH", "iteracoes": 600000, "dados": "o4LUh2hkLErPPeN5nD/PiDHMHXuYTQdFF9Na4176vnNpW7t01Z91B91HOIpbwbl3BE6mSFCV1kNmU8NO4vYTRM9kb/ONHGN/miJWb6e5u+Boaac3l/TkZm9vNHg6USOJlAK6ayL3dFYWxj9DKqrOWFuGlw=="}}, {"usuario": "aluno10", "nome": "Maeda", "ap2": true, "cofre": {"sal": "yeeWF1kE9yrR3kMY9Ofuog==", "iv": "b4AeRdZiIvHIEx6Y", "iteracoes": 600000, "dados": "cnNmqnIiswotYcrljgMvdRTL8lZaxWYEkV4IHC2MoMPuc6z925t0o7yEO/lwBmom+q9CRsl3GgHzVoT86Ge048GbZk6hdrir8U45uzH31wnBzX9nvZbRh1iVZPWbc7ldEdAQnTXKrnOBbUEZ55IX8Ootww=="}}, {"usuario": "aluno11", "nome": "Milagres", "ap2": true, "cofre": {"sal": "AMd2xufFh5cxm9qeCUwhpg==", "iv": "IQdL1Wyyp2i9cVQq", "iteracoes": 600000, "dados": "EHCu7JSVNNJ0ZQDPfsWcmioSldTatXm3buiY/lSdE1ZUiztaew+Z/rhqc37QSnTrMCzPVk02r0w5vU+J27glT/JTr31VexnAwZHYPZd9OhjtVQcwpiRl1fRkwooqBB64uBvAfh4YjpBZGdqxjF6aCZpkjQ=="}}, {"usuario": "aluno12", "nome": "Simões", "ap2": true, "cofre": {"sal": "UJ1+p+fJmHSpbiJP1GkY2Q==", "iv": "1BBopqsLVQ6tYg4t", "iteracoes": 600000, "dados": "SGkfGHCT6jjDHc/V/w5EqTkKU/dxoyDtjE4OaN2SneWdvvNaiifdwUmvomleOUl64WhGJNwy0K2ze9ewhs7mSEUkJ5ntvf7UZVzRgQgjBXkPQcRgPUb6MXMeoM/n0kLvcvutoaSVJBphlc0EWUPANYSraQ=="}}]};
-// Cadernos de atividades da revisão para a AP2, cifrados (AES-GCM). A chave vem do cofre de cada aluno.
+// Turmas. A lista de alunos vem do banco, pelo usuário portal, que só executa as funções portal.alunos(),
+// portal.entrar() e portal.trocar_senha(). A senha dele fica aqui de propósito: ela não dá acesso a nenhum dado.
+// A senha de cada aluno é conferida no banco (hash bcrypt), com bloqueio de 10 minutos depois de 5 erros. Só com a
+// senha certa o banco devolve a senha do usuário do aluno, a chave dos arquivos da AP2 dele e a dos cadernos.
+// No primeiro acesso, com a senha provisória entregue pelo professor, o aluno precisa criar uma senha nova.
+const TURMAS = ['POO2026.2'];
+const PORTAL = { usuario: 'portal', senha: 'npg_portal_l67uFjnhwl8LJmQ7xk68Y1sr' };
+// Cadernos de atividades da revisão para a AP2, cifrados (AES-GCM). A chave vem do banco, depois da senha do aluno.
 const MATERIAL = [
   { arquivo: 'Revisao_AP2_Atividade_1.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_1.pdf', iv: 'vSOJNHmsWDAwtEJ6' },
   { arquivo: 'Revisao_AP2_Atividade_2.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_2.pdf', iv: 'Hf7uBPZXKs81fj5D' },
@@ -268,7 +279,7 @@ async function abrir(cofre, frase) {
   const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(cofre.iv) }, chave, desB64(cofre.dados));
   return JSON.parse(new TextDecoder().decode(claro));
 }
-const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: null, material: null };
+const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: null, material: null, provisoria: null };
 const $ = (id) => document.getElementById(id);
 
 // divide o texto em comandos pelo ";", sem cortar dentro de aspas nem de comentários
@@ -667,11 +678,25 @@ async function atualizarLateral() {
   }
 }
 
-// A lista vem de TURMAS, em ordem alfabética, e termina no professor
-function carregarAlunos(turma) {
+// A lista vem do banco (portal.alunos()), em ordem alfabética, e termina no professor
+async function carregarAlunos(turma) {
   const sel = $('usuario');
+  const aviso = $('msg-entrada');
   const opcao = (texto, valor) => { const o = el('option', '', texto); o.value = valor; return o; };
-  const lista = [...(TURMAS[turma] || [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  sel.disabled = true;
+  sel.replaceChildren(opcao('Carregando a turma...', ''));
+  let lista = null;
+  try {
+    const r = await consultar('SELECT usuario, nome FROM portal.alunos()', PORTAL.usuario, PORTAL.senha);
+    lista = r.rows.map(([usuario, nome]) => ({ usuario, nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  } catch (e) { lista = null; }
+  if (!lista) {
+    sel.replaceChildren(opcao('Turma indisponível', ''));
+    aviso.className = 'msg';
+    aviso.textContent = 'Não consegui ler a lista da turma. Confira a internet e escolha a turma de novo.';
+    aviso.hidden = false;
+    return;
+  }
   const primeira = opcao('Escolha seu nome', '');
   primeira.disabled = true;
   const grupo = el('optgroup');
@@ -684,8 +709,18 @@ function carregarAlunos(turma) {
   sel.value = '';
   sel.disabled = false;
 }
-const alunoDe = (usuario) => (TURMAS[$('turma').value] || []).find((a) => a.usuario === usuario);
-Object.keys(TURMAS).forEach((t) => { const o = el('option', '', t); o.value = t; $('turma').append(o); });
+TURMAS.forEach((t) => { const o = el('option', '', t); o.value = t; $('turma').append(o); });
+function modoPrimeiroAcesso(ligar) {
+  $('campo-nova').hidden = !ligar;
+  $('campo-confirma').hidden = !ligar;
+  $('campo-chave').hidden = ligar;
+  $('usuario').disabled = ligar;
+  $('turma').disabled = ligar;
+  $('entrar').textContent = ligar ? 'Salvar e entrar' : 'Entrar';
+  $('nova-senha').value = '';
+  $('confirma-senha').value = '';
+  if (!ligar) estado.provisoria = null;
+}
 $('turma').addEventListener('change', () => {
   carregarAlunos($('turma').value);
   document.querySelector('.corpo').classList.remove('trancado');
@@ -695,12 +730,14 @@ $('turma').addEventListener('change', () => {
   $('campo-chave').hidden = false;
   $('entrar').hidden = false;
   $('msg-entrada').hidden = true;
+  modoPrimeiroAcesso(false);
   $('usuario').focus();
 });
 $('usuario').addEventListener('change', () => {
   const prof = $('usuario').value === 'docente';
   $('campo-prof').hidden = !prof;
   $('campo-chave').hidden = prof;
+  modoPrimeiroAcesso(false);
   $('entrar').hidden = prof; // o professor entra pelo botão do Google, que já envia o formulário
   if (prof) desenharBotaoGoogle();
   if (['Escolha seu nome na lista.', 'Entre com a conta Google do professor.'].includes($('msg-entrada').textContent)) $('msg-entrada').hidden = true;
@@ -743,27 +780,24 @@ document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', 
   }
 }));
 
-// ---------------------------------------------------------------- chave do aluno e arquivos da AP2
-// Cada schema de aluno tem uma chave própria de 8 caracteres (hexadecimais e especiais), entregue pelo professor
-// e digitada junto com o nome. A chave abre os dois arquivos do aluno: ap2/alunoNN_prova.pdf.enc (o caderno de
-// questões do tipo de prova que ele fez) e ap2/alunoNN_correcao.pdf.enc (a correção individualizada), cifrados
-// com AES-GCM. A chave AES sai da chave do aluno por PBKDF2-SHA-256 com 600 mil iterações; o arquivo traz o sal
-// (16 bytes) e o IV (12 bytes) antes do conteúdo. A página não guarda nenhuma cópia da chave.
-const ITERACOES_AP2 = 600000;
-const normChave = (t) => t.trim().toLowerCase();
+// ---------------------------------------------------------------- arquivos da AP2
+// Cada schema de aluno tem os seus dois arquivos: ap2/alunoNN_prova.pdf.enc (o caderno de questões do tipo de prova
+// que ele fez) e ap2/alunoNN_correcao.pdf.enc (a correção individualizada), cifrados com AES-GCM. A chave (256 bits)
+// fica no banco e só chega depois da senha do aluno; o arquivo traz o IV (12 bytes) antes do conteúdo.
 async function abrirAp2(usuario, chave, tipo) {
   const r = await fetch(`ap2/${usuario}_${tipo}.pdf.enc`, { cache: 'no-store' });
   if (r.status === 404) return { falta: true };
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const bruto = new Uint8Array(await r.arrayBuffer());
-  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(chave), 'PBKDF2', false, ['deriveKey']);
-  const k = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: bruto.slice(0, 16), iterations: ITERACOES_AP2, hash: 'SHA-256' },
-    base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const k = await crypto.subtle.importKey('raw', desB64(chave), 'AES-GCM', false, ['decrypt']);
   try {
-    return { claro: await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bruto.slice(16, 28) }, k, bruto.slice(28)) };
+    return { claro: await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bruto.slice(0, 12) }, k, bruto.slice(12)) };
   } catch (e) {
     return { errada: true };
   }
+}
+async function existeAp2(usuario) {
+  try { return (await fetch(`ap2/${usuario}_correcao.pdf.enc`, { method: 'HEAD', cache: 'no-store' })).ok; } catch (e) { return false; }
 }
 document.querySelectorAll('.baixar-ap2').forEach((b) => b.addEventListener('click', async () => {
   const msg = $('msg-ap2');
@@ -801,27 +835,54 @@ $('form-entrada').addEventListener('submit', async (ev) => {
   const recusar = (texto, campo) => { aviso.className = 'msg'; aviso.textContent = texto; aviso.hidden = false; campo.focus(); };
   if (!usuario) { recusar('Escolha seu nome na lista.', sel); return; }
   if (usuario === 'docente' && !tokenGoogle) { recusar('Entre com a conta Google do professor.', sel); return; }
-  const chave = usuario === 'docente' ? null : normChave($('chave-aluno').value);
-  if (usuario !== 'docente' && !chave) { recusar('Digite a sua chave de aluno.', $('chave-aluno')); return; }
   let senha = null;
   let material = null;
+  let chaveArquivos = null;
+  let pedido = null;
+  if (usuario !== 'docente') {
+    if (estado.provisoria) {
+      const nova = $('nova-senha').value;
+      if (nova.length < 8) { recusar('A nova senha precisa ter pelo menos 8 caracteres.', $('nova-senha')); return; }
+      if (nova !== $('confirma-senha').value) { recusar('As duas senhas não são iguais. Digite de novo.', $('confirma-senha')); return; }
+      pedido = ['SELECT portal.trocar_senha($1, $2, $3) AS r', [usuario, estado.provisoria, nova]];
+    } else {
+      const s = $('chave-aluno').value;
+      if (!s) { recusar('Digite a sua senha.', $('chave-aluno')); return; }
+      pedido = ['SELECT portal.entrar($1, $2) AS r', [usuario, s]];
+    }
+  }
   $('entrar').disabled = true;
   aviso.className = 'msg info';
-  aviso.textContent = usuario === 'docente' ? 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.' : 'Conferindo a chave e conectando ao banco. Pode levar alguns segundos.';
+  aviso.textContent = usuario === 'docente' ? 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.' : 'Conferindo a senha. Pode levar alguns segundos.';
   aviso.hidden = false;
   try {
     let temAp2 = false;
     if (usuario !== 'docente') {
-      const a = alunoDe(usuario);
-      try {
-        ({ senha, material } = await abrir(a.cofre, chave));
-      } catch (e) {
-        aviso.className = 'msg';
-        aviso.textContent = window.crypto && crypto.subtle ? 'Chave incorreta para este aluno. Confira o nome escolhido e a chave entregue pelo professor.' : 'Este navegador não consegue conferir a chave. Use o Chrome, o Edge ou o Firefox atualizados.';
-        $('chave-aluno').focus();
+      const q = await consultar(pedido[0], PORTAL.usuario, PORTAL.senha, pedido[1]);
+      const v = q.rows[0][0];
+      const res = typeof v === 'string' ? JSON.parse(v) : v;
+      const falha = (texto, campo) => { aviso.className = 'msg'; aviso.textContent = texto; campo.focus(); };
+      if (res.erro === 'bloqueado') { modoPrimeiroAcesso(false); falha(`Muitas tentativas erradas. Este nome fica bloqueado por ${res.minutos} minuto${res.minutos > 1 ? 's' : ''}.`, $('chave-aluno')); return; }
+      if (res.erro === 'senha') {
+        modoPrimeiroAcesso(false);
+        falha(`Senha incorreta.${res.restantes !== undefined ? ` Restam ${res.restantes} tentativa${res.restantes === 1 ? '' : 's'} antes do bloqueio.` : ''}`, $('chave-aluno'));
         return;
       }
-      temAp2 = Boolean(a.ap2);
+      if (res.erro === 'tamanho') { falha('A nova senha precisa ter entre 8 e 64 caracteres.', $('nova-senha')); return; }
+      if (res.erro === 'igual') { falha('A nova senha precisa ser diferente da senha provisória.', $('nova-senha')); return; }
+      if (res.provisoria) {
+        estado.provisoria = $('chave-aluno').value;
+        $('chave-aluno').value = '';
+        modoPrimeiroAcesso(true);
+        aviso.className = 'msg info';
+        aviso.textContent = 'Primeiro acesso: crie a sua senha, com pelo menos 8 caracteres. Ela substitui a senha provisória.';
+        $('nova-senha').focus();
+        return;
+      }
+      senha = res.senha_banco;
+      material = res.material;
+      chaveArquivos = res.chave_arquivos;
+      temAp2 = await existeAp2(usuario);
     }
     const r = await consultar('SELECT current_user', usuario, senha);
     estado.usuario = usuario === 'docente' ? 'docente' : r.rows[0][0];
@@ -835,10 +896,11 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     $('historico').hidden = false;
     if (!$('historico').children.length) $('historico').append(el('p', 'vazio', 'Os comandos executados aparecem aqui, os mais recentes em cima.'));
     aviso.hidden = true;
-    estado.chave = temAp2 ? chave : null;
+    estado.chave = temAp2 ? chaveArquivos : null;
     estado.material = material;
     $('material').hidden = usuario === 'docente';
     $('chave-aluno').value = '';
+    modoPrimeiroAcesso(false);
     $('msg-ap2').textContent = '';
     $('ap2').hidden = !temAp2;
     atualizarLateral();
@@ -870,6 +932,7 @@ $('trocar').addEventListener('click', () => {
   estado.material = null;
   $('chave-aluno').value = '';
   $('campo-chave').hidden = false;
+  modoPrimeiroAcesso(false);
   $('msg-ap2').textContent = '';
   $('historico').replaceChildren();
   atualizarLateral();
