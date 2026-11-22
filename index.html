@@ -258,6 +258,21 @@ const BANCO = 'escola';
 // A senha de cada aluno é conferida no banco (hash bcrypt), com bloqueio de 10 minutos depois de 5 erros. Só com a
 // senha certa o banco devolve a senha do usuário do aluno, a chave dos arquivos da AP2 dele e a dos cadernos.
 // No primeiro acesso, com a senha provisória entregue pelo professor, o aluno precisa criar uma senha nova.
+// Atualização automática: o GitHub Pages deixa o navegador guardar a página por até 10 minutos. A página confere
+// versao.txt (sem cache) e, se houver versão nova, recarrega por um endereço novo, que o navegador ainda não guardou.
+const VERSAO = '2026-11-22-14';
+(async () => {
+  try {
+    const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: 'no-store' });
+    const v = r.ok ? (await r.text()).trim() : '';
+    let ja = null;
+    try { ja = sessionStorage.getItem('executor-versao'); } catch (e) { ja = null; }
+    if (v && v !== VERSAO && ja !== v) {
+      try { sessionStorage.setItem('executor-versao', v); } catch (e) { /* sem armazenamento: recarrega uma vez */ }
+      location.replace(`${location.pathname}?v=${encodeURIComponent(v)}`);
+    }
+  } catch (e) { /* sem rede: segue com a versão guardada */ }
+})();
 const TURMAS = ['POO2026.2'];
 const PORTAL = { usuario: 'portal', senha: 'npg_portal_l67uFjnhwl8LJmQ7xk68Y1sr' };
 // Cadernos de atividades da revisão para a AP2, cifrados (AES-GCM). A chave vem do banco, depois da senha do aluno.
@@ -714,7 +729,7 @@ TURMAS.forEach((t) => { const o = el('option', '', t); o.value = t; $('turma').a
 function modoPrimeiroAcesso(ligar) {
   $('campo-nova').hidden = !ligar;
   $('campo-confirma').hidden = !ligar;
-  $('campo-chave').hidden = ligar;
+  $('campo-chave').hidden = ligar || $('usuario').value === 'docente' || estado.viaGoogle;
   $('usuario').disabled = ligar;
   $('turma').disabled = ligar;
   $('entrar').textContent = ligar ? 'Salvar e entrar' : 'Entrar';
