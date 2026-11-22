@@ -164,6 +164,13 @@ td.nulo { color: #8B95A5; font-style: italic; }
   .res { font-size: 14px; }
   .tabela { margin-left: -4px; margin-right: -4px; }
 }
+/* Dentro de outra página (o portal): faixa mais baixa e tela de entrada compacta, para caber sem rolagem */
+.embutido .faixa-in { padding-block: 10px 9px; }
+.embutido h1 { font-size: 23px; }
+.embutido .corpo { padding-block: 14px 16px; }
+.embutido .corpo.trancado { padding-block: 18px 18px; }
+.embutido .intro p { margin-bottom: 12px; }
+.embutido .passos { margin-top: 14px; padding-top: 12px; }
 @media (prefers-reduced-motion: no-preference) { .bloco.esperando .res { animation: pulsar 1.2s ease-in-out infinite; } }
 @keyframes pulsar { 50% { opacity: 0.45; } }
 </style>
@@ -273,6 +280,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
 <div id="fundo"></div>
 
 <script>
+try { if (window.self !== window.top) document.documentElement.classList.add('embutido'); } catch (e) { document.documentElement.classList.add('embutido'); }
 // Conversa com o Neon pela web (porta 443), com o usuário do aluno escolhido: cada aluno tem um usuário e um
 // schema próprios. O aluno escolhe a turma e o nome e digita a chave dele; a senha do banco vem do cofre do aluno.
 // Cada comando vai sozinho e é gravado na hora, como no Java.
