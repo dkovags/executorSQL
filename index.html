@@ -68,8 +68,8 @@ input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 1
 .material { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-block: 12px; }
 .material a { color: var(--navy); font-weight: 700; }
 #g-prof { min-height: 44px; }
-.material .baixar { height: auto; min-height: 34px; padding: 6px 12px; line-height: 1.3; white-space: normal; text-align: left; }
-@media (max-width: 700px) { .material .baixar { width: 100%; min-height: 44px; } }
+.material .baixar, .material .baixar-ap2 { height: auto; min-height: 34px; padding: 6px 12px; line-height: 1.3; white-space: normal; text-align: left; }
+@media (max-width: 700px) { .material .baixar, .material .baixar-ap2, #chave-ap2 { width: 100%; min-height: 44px; } }
 select:disabled { color: var(--cinza); background: var(--painel); }
 .outros { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--linha); }
 .outros .esq { margin: 10px 0 4px; font-size: 14px; color: var(--tinta); }
@@ -120,7 +120,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
 @media (max-width: 820px) {
   .corpo { grid-template-areas: "main"; padding-block: 14px 28px; gap: 14px; }
   main { gap: 14px; }
-  #entrada { order: 1; } #trabalho { order: 2; } #historico { order: 3; } #material { order: 4; }
+  #entrada { order: 1; } #trabalho { order: 2; } #historico { order: 3; } #material { order: 4; } #ap2 { order: 5; }
   .faixa-in { padding-block: 12px 10px; }
   .atalhos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
   .atalhos button { height: 44px; }
@@ -219,6 +219,14 @@ td.nulo { color: #8B95A5; font-style: italic; }
       <button id="limpar" class="secundario" type="button">Limpar</button>
       <span class="dica"><span class="so-teclado">Ctrl+Enter também executa. </span>Cada comando termina em <code>;</code> se tiver mais de uma instrução. O que der certo sai do editor e vai para o histórico; o que der erro fica no editor para corrigir.</span>
     </div>
+  </section>
+
+  <section id="ap2" class="cartao material" hidden>
+    <span class="rotulo">AP2 · Prova e correção</span>
+    <input id="chave-ap2" type="password" autocomplete="off" spellcheck="false" placeholder="Chave de acesso da AP2" aria-label="Chave de acesso da AP2">
+    <button class="secundario baixar-ap2" type="button" data-tipo="prova">Minha prova (folhas de resposta)</button>
+    <button class="secundario baixar-ap2" type="button" data-tipo="correcao">Correção individualizada</button>
+    <span id="msg-ap2" class="dica"></span>
   </section>
 
   <section id="historico" aria-live="polite" hidden></section>
@@ -782,6 +790,51 @@ document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', 
   }
 }));
 
+// ---------------------------------------------------------------- AP2: prova e correção de cada aluno
+// Cada schema de aluno tem os seus dois arquivos (ap2/alunoNN_prova.pdf.enc e ap2/alunoNN_correcao.pdf.enc),
+// cifrados com AES-GCM. A chave AES sai da chave de acesso da AP2 do aluno, entregue pelo professor, por
+// PBKDF2-SHA-256 com 300 mil iterações. O arquivo traz o sal (16 bytes) e o IV (12 bytes) antes do conteúdo.
+document.querySelectorAll('.baixar-ap2').forEach((b) => b.addEventListener('click', async () => {
+  const msg = $('msg-ap2');
+  const frase = $('chave-ap2').value.toUpperCase().replace(/[\s-]/g, '');
+  msg.textContent = '';
+  if (!frase) { msg.textContent = 'Digite a sua chave de acesso da AP2.'; $('chave-ap2').focus(); return; }
+  if (!estado.usuario || estado.usuario === 'docente') return;
+  const texto = b.textContent;
+  b.disabled = true;
+  b.textContent = 'Preparando...';
+  try {
+    const r = await fetch(`ap2/${estado.usuario}_${b.dataset.tipo}.pdf.enc`, { cache: 'no-store' });
+    if (r.status === 404) { msg.textContent = 'Não há prova da AP2 registrada para este aluno.'; return; }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const bruto = new Uint8Array(await r.arrayBuffer());
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(frase), 'PBKDF2', false, ['deriveKey']);
+    const chave = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: bruto.slice(0, 16), iterations: 300000, hash: 'SHA-256' },
+      base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    let claro;
+    try {
+      claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bruto.slice(16, 28) }, chave, bruto.slice(28));
+    } catch (e) {
+      msg.textContent = 'Chave incorreta para este aluno. Confira a chave e o nome escolhido na entrada.';
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([claro], { type: 'application/pdf' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = b.dataset.tipo === 'prova' ? 'POO_AP2_2026_2_Folhas_de_Respostas.pdf' : 'POO_AP2_2026_2_Correcao_Individualizada.pdf';
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    msg.textContent = 'Não consegui baixar o arquivo agora. Avise o professor.';
+  } finally {
+    b.disabled = false;
+    b.textContent = texto;
+  }
+}));
+$('chave-ap2').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') document.querySelector('.baixar-ap2[data-tipo="correcao"]').click(); });
+
 // ---------------------------------------------------------------- entrada
 $('form-entrada').addEventListener('submit', async (ev) => {
   ev.preventDefault();
@@ -809,6 +862,9 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     $('historico').hidden = false;
     if (!$('historico').children.length) $('historico').append(el('p', 'vazio', 'Os comandos executados aparecem aqui, os mais recentes em cima.'));
     aviso.hidden = true;
+    $('chave-ap2').value = '';
+    $('msg-ap2').textContent = '';
+    $('ap2').hidden = estado.usuario === 'docente';
     atualizarLateral();
     $('sql').focus();
   } catch (e) {
@@ -832,6 +888,9 @@ $('trocar').addEventListener('click', () => {
   $('status').classList.remove('ligado');
   $('trabalho').hidden = true;
   $('historico').hidden = true;
+  $('ap2').hidden = true;
+  $('chave-ap2').value = '';
+  $('msg-ap2').textContent = '';
   $('historico').replaceChildren();
   atualizarLateral();
   $('entrada').hidden = false;
