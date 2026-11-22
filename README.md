@@ -7,6 +7,7 @@ Páginas de apoio ao laboratório de banco de dados.
   primeiro acesso, com a senha provisória entregue pelo professor, o aluno cria a senha dele. Só depois disso o banco
   devolve a senha do usuário do aluno e as chaves dos arquivos. O último item da lista, Professor, entra com a conta
   Google autorizada: os comandos vão pela Data API do Neon, que confere o login, e rodam no schema docente.
+  A chave mestra do professor, digitada no lugar da senha, entra na área de qualquer aluno sem trocar a senha dele.
   Depois da entrada, a página oferece os cadernos de atividades da revisão e os arquivos da AP2 do aluno, em PDF.
 - [`professor/`](professor): painel do professor, com entrada pela conta Google autorizada. No cadastro da turma,
   o botão Senha gera uma senha provisória nova para o aluno da vaga.

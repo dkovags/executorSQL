@@ -231,7 +231,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
 
   <section id="ap2" class="cartao material" hidden>
     <span class="rotulo">AP2 · Prova e correção (PDF)</span>
-    <button class="secundario baixar-ap2" type="button" data-tipo="prova">Minha prova (caderno de questões)</button>
+    <button class="secundario baixar-ap2" type="button" data-tipo="prova">Caderno de Questões</button>
     <button class="secundario baixar-ap2" type="button" data-tipo="correcao">Correção individualizada</button>
     <span id="msg-ap2" class="dica"></span>
   </section>
@@ -838,6 +838,7 @@ $('form-entrada').addEventListener('submit', async (ev) => {
   let senha = null;
   let material = null;
   let chaveArquivos = null;
+  let mestra = false;
   let pedido = null;
   if (usuario !== 'docente') {
     if (estado.provisoria) {
@@ -869,6 +870,7 @@ $('form-entrada').addEventListener('submit', async (ev) => {
         return;
       }
       if (res.erro === 'tamanho') { falha('A nova senha precisa ter entre 8 e 64 caracteres.', $('nova-senha')); return; }
+      if (res.erro === 'mestra') { modoPrimeiroAcesso(false); falha('A chave mestra entra na área do aluno, mas não troca a senha dele.', $('chave-aluno')); return; }
       if (res.erro === 'igual') { falha('A nova senha precisa ser diferente da senha provisória.', $('nova-senha')); return; }
       if (res.provisoria) {
         estado.provisoria = $('chave-aluno').value;
@@ -879,6 +881,7 @@ $('form-entrada').addEventListener('submit', async (ev) => {
         $('nova-senha').focus();
         return;
       }
+      mestra = Boolean(res.mestra);
       senha = res.senha_banco;
       material = res.material;
       chaveArquivos = res.chave_arquivos;
@@ -888,7 +891,7 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     estado.usuario = usuario === 'docente' ? 'docente' : r.rows[0][0];
     estado.senha = senha;
     estado.nome = sel.options[sel.selectedIndex].textContent;
-    $('status').textContent = `${estado.nome} · ${estado.usuario}`;
+    $('status').textContent = `${estado.nome} · ${estado.usuario}${mestra ? ' · acesso do professor' : ''}`;
     $('trocar').textContent = estado.usuario === 'docente' ? 'Trocar de usuário' : 'Trocar de aluno';
     $('status').classList.add('ligado');
     $('entrada').hidden = true;
