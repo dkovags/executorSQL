@@ -224,7 +224,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
   <section id="ap2" class="cartao material" hidden>
     <span class="rotulo">AP2 · Prova e correção</span>
     <input id="chave-ap2" type="password" autocomplete="off" spellcheck="false" placeholder="Chave de acesso da AP2" aria-label="Chave de acesso da AP2">
-    <button class="secundario baixar-ap2" type="button" data-tipo="prova">Minha prova (folhas de resposta)</button>
+    <button class="secundario baixar-ap2" type="button" data-tipo="prova">Minha prova (caderno de questões)</button>
     <button class="secundario baixar-ap2" type="button" data-tipo="correcao">Correção individualizada</button>
     <span id="msg-ap2" class="dica"></span>
   </section>
@@ -739,6 +739,7 @@ $('form-cofre').addEventListener('submit', async (ev) => {
   const frase = $('frase').value.trim();
   if (!frase) { aviso.className = 'msg'; aviso.textContent = 'Digite a chave de acesso da turma.'; aviso.hidden = false; return; }
   $('abrir').disabled = true;
+  if (ap2Fixo) { ap2Fixo = null; $('ap2').hidden = true; $('chave-ap2').hidden = false; }
   aviso.className = 'msg info';
   aviso.textContent = 'Abrindo...';
   aviso.hidden = false;
@@ -805,7 +806,8 @@ document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', 
 }));
 
 // ---------------------------------------------------------------- AP2: prova e correção de cada aluno
-// Cada schema de aluno tem os seus dois arquivos (ap2/alunoNN_prova.pdf.enc e ap2/alunoNN_correcao.pdf.enc),
+// Cada schema de aluno tem os seus dois arquivos: ap2/alunoNN_prova.pdf.enc (o caderno de questões do tipo de
+// prova que o aluno fez) e ap2/alunoNN_correcao.pdf.enc (a correção individualizada),
 // cifrados com AES-GCM. A chave AES sai da chave de acesso da AP2 do aluno, entregue pelo professor, por
 // PBKDF2-SHA-256 com 300 mil iterações. O arquivo traz o sal (16 bytes) e o IV (12 bytes) antes do conteúdo.
 // A chave da AP2 também funciona na primeira tela, no lugar da chave da turma: o índice abaixo guarda só o
@@ -848,7 +850,7 @@ document.querySelectorAll('.baixar-ap2').forEach((b) => b.addEventListener('clic
     const url = URL.createObjectURL(new Blob([claro], { type: 'application/pdf' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = b.dataset.tipo === 'prova' ? 'POO_AP2_2026_2_Folhas_de_Respostas.pdf' : 'POO_AP2_2026_2_Correcao_Individualizada.pdf';
+    a.download = b.dataset.tipo === 'prova' ? 'POO_AP2_2026_2_Caderno_de_Questoes.pdf' : 'POO_AP2_2026_2_Correcao_Individualizada.pdf';
     document.body.append(a);
     a.click();
     a.remove();
