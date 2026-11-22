@@ -15,4 +15,4 @@ Páginas de apoio ao laboratório de banco de dados.
 - `ap2/`: caderno de questões e correção individualizada de cada aluno, cifrados com uma chave aleatória guardada no
   banco e entregue só ao próprio aluno, depois da senha.
 
-As páginas não guardam senhas em texto: as senhas dos alunos ficam só no banco, com hash, e o painel e a entrada do professor só recebem dados depois que o banco confere o login do Google.
+As páginas só guardam em texto a senha do usuário portal, que não lê nenhum dado e apenas confere senhas; as senhas dos alunos ficam no banco, com hash, e o painel e a entrada do professor só recebem dados depois que o banco confere o login do Google.
