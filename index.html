@@ -208,6 +208,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
         <div id="g-prof"></div>
       </div>
       <button id="entrar" type="submit">Entrar</button>
+      <button id="sou-professor" class="secundario" type="button" hidden>Entrar como professor</button>
     </form>
     <p id="msg-entrada" class="msg" hidden></p>
   </section>
@@ -279,7 +280,7 @@ async function abrir(cofre, frase) {
   const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(cofre.iv) }, chave, desB64(cofre.dados));
   return JSON.parse(new TextDecoder().decode(claro));
 }
-const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: null, material: null, provisoria: null };
+const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: null, material: null, provisoria: null, viaGoogle: false };
 const $ = (id) => document.getElementById(id);
 
 // divide o texto em comandos pelo ";", sem cortar dentro de aspas nem de comentários
@@ -717,10 +718,23 @@ function modoPrimeiroAcesso(ligar) {
   $('usuario').disabled = ligar;
   $('turma').disabled = ligar;
   $('entrar').textContent = ligar ? 'Salvar e entrar' : 'Entrar';
+  if (ligar) $('sou-professor').hidden = true;
   $('nova-senha').value = '';
   $('confirma-senha').value = '';
   if (!ligar) estado.provisoria = null;
 }
+// O professor entra na área de qualquer aluno com a conta Google: o banco confere o login e devolve o acesso do aluno,
+// sem mexer na senha dele.
+function modoProfessor(ligar) {
+  const aluno = Boolean($('usuario').value) && $('usuario').value !== 'docente';
+  estado.viaGoogle = ligar && aluno;
+  $('campo-prof').hidden = !(estado.viaGoogle || $('usuario').value === 'docente');
+  $('campo-chave').hidden = estado.viaGoogle || $('usuario').value === 'docente';
+  $('entrar').hidden = estado.viaGoogle || $('usuario').value === 'docente';
+  $('sou-professor').hidden = !aluno || estado.viaGoogle;
+  if (estado.viaGoogle) desenharBotaoGoogle();
+}
+$('sou-professor').addEventListener('click', () => { modoPrimeiroAcesso(false); modoProfessor(true); $('msg-entrada').hidden = true; });
 $('turma').addEventListener('change', () => {
   carregarAlunos($('turma').value);
   document.querySelector('.corpo').classList.remove('trancado');
@@ -731,6 +745,7 @@ $('turma').addEventListener('change', () => {
   $('entrar').hidden = false;
   $('msg-entrada').hidden = true;
   modoPrimeiroAcesso(false);
+  modoProfessor(false);
   $('usuario').focus();
 });
 $('usuario').addEventListener('change', () => {
@@ -738,6 +753,7 @@ $('usuario').addEventListener('change', () => {
   $('campo-prof').hidden = !prof;
   $('campo-chave').hidden = prof;
   modoPrimeiroAcesso(false);
+  modoProfessor(false);
   $('entrar').hidden = prof; // o professor entra pelo botão do Google, que já envia o formulário
   if (prof) desenharBotaoGoogle();
   if (['Escolha seu nome na lista.', 'Entre com a conta Google do professor.'].includes($('msg-entrada').textContent)) $('msg-entrada').hidden = true;
@@ -840,7 +856,9 @@ $('form-entrada').addEventListener('submit', async (ev) => {
   let chaveArquivos = null;
   let mestra = false;
   let pedido = null;
-  if (usuario !== 'docente') {
+  if (usuario !== 'docente' && estado.viaGoogle) {
+    if (!tokenGoogle) { recusar('Entre com a conta Google do professor.', sel); return; }
+  } else if (usuario !== 'docente') {
     if (estado.provisoria) {
       const nova = $('nova-senha').value;
       if (nova.length < 8) { recusar('A nova senha precisa ter pelo menos 8 caracteres.', $('nova-senha')); return; }
@@ -859,9 +877,28 @@ $('form-entrada').addEventListener('submit', async (ev) => {
   try {
     let temAp2 = false;
     if (usuario !== 'docente') {
-      const q = await consultar(pedido[0], PORTAL.usuario, PORTAL.senha, pedido[1]);
-      const v = q.rows[0][0];
-      const res = typeof v === 'string' ? JSON.parse(v) : v;
+      let res;
+      if (estado.viaGoogle) {
+        let resp;
+        try {
+          resp = await fetch(`${DATA_API}/rpc/acessar_aluno`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` },
+            body: JSON.stringify({ p_usuario: usuario }),
+          });
+        } catch (e) { throw { rede: true }; }
+        const corpo = await resp.json().catch(() => null);
+        if (!resp.ok) {
+          tokenGoogle = null;
+          const m = (corpo && corpo.message) || `HTTP ${resp.status}`;
+          throw { message: /acesso negado/.test(m) ? 'Esta conta Google não tem acesso de professor.' : (resp.status === 401 ? 'O login do Google não foi aceito. Tente de novo.' : m) };
+        }
+        res = typeof corpo === 'string' ? JSON.parse(corpo) : corpo;
+      } else {
+        const q = await consultar(pedido[0], PORTAL.usuario, PORTAL.senha, pedido[1]);
+        const v = q.rows[0][0];
+        res = typeof v === 'string' ? JSON.parse(v) : v;
+      }
       const falha = (texto, campo) => { aviso.className = 'msg'; aviso.textContent = texto; campo.focus(); };
       if (res.erro === 'bloqueado') { modoPrimeiroAcesso(false); falha(`Muitas tentativas erradas. Este nome fica bloqueado por ${res.minutos} minuto${res.minutos > 1 ? 's' : ''}.`, $('chave-aluno')); return; }
       if (res.erro === 'senha') {
@@ -870,7 +907,6 @@ $('form-entrada').addEventListener('submit', async (ev) => {
         return;
       }
       if (res.erro === 'tamanho') { falha('A nova senha precisa ter entre 8 e 64 caracteres.', $('nova-senha')); return; }
-      if (res.erro === 'mestra') { modoPrimeiroAcesso(false); falha('A chave mestra entra na área do aluno, mas não troca a senha dele.', $('chave-aluno')); return; }
       if (res.erro === 'igual') { falha('A nova senha precisa ser diferente da senha provisória.', $('nova-senha')); return; }
       if (res.provisoria) {
         estado.provisoria = $('chave-aluno').value;
@@ -889,6 +925,7 @@ $('form-entrada').addEventListener('submit', async (ev) => {
     }
     const r = await consultar('SELECT current_user', usuario, senha);
     estado.usuario = usuario === 'docente' ? 'docente' : r.rows[0][0];
+    if (usuario !== 'docente') tokenGoogle = null; // o token só serviu para abrir a área do aluno
     estado.senha = senha;
     estado.nome = sel.options[sel.selectedIndex].textContent;
     $('status').textContent = `${estado.nome} · ${estado.usuario}${mestra ? ' · acesso do professor' : ''}`;
@@ -936,6 +973,7 @@ $('trocar').addEventListener('click', () => {
   $('chave-aluno').value = '';
   $('campo-chave').hidden = false;
   modoPrimeiroAcesso(false);
+  modoProfessor(false);
   $('msg-ap2').textContent = '';
   $('historico').replaceChildren();
   atualizarLateral();
