@@ -176,6 +176,9 @@ td.nulo { color: #8B95A5; font-style: italic; }
 .embutido .intro h2 { font-size: 21px; margin-bottom: 4px; }
 .embutido .intro p { font-size: 15px; }
 .embutido #form-entrada { gap: 8px 16px; }
+/* janela baixa: primeiro saem os passos, depois a frase de apresentação, para a entrada caber sem rolagem */
+.apertado .passos { display: none; }
+.apertado2 .intro p { display: none; }
 @media (prefers-reduced-motion: no-preference) { .bloco.esperando .res { animation: pulsar 1.2s ease-in-out infinite; } }
 @keyframes pulsar { 50% { opacity: 0.45; } }
 </style>
@@ -286,6 +289,18 @@ td.nulo { color: #8B95A5; font-style: italic; }
 
 <script>
 try { if (window.self !== window.top) document.documentElement.classList.add('embutido'); } catch (e) { document.documentElement.classList.add('embutido'); }
+// Embutido no portal, a tela de entrada se ajusta à altura disponível em vez de ganhar barra de rolagem.
+function caberEntrada() {
+  const h = document.documentElement;
+  if (!h.classList.contains('embutido')) return;
+  h.classList.remove('apertado', 'apertado2');
+  if (!document.querySelector('.corpo.trancado')) return;
+  if (h.scrollHeight > window.innerHeight) h.classList.add('apertado');
+  if (h.scrollHeight > window.innerHeight) h.classList.add('apertado2');
+}
+window.addEventListener('resize', caberEntrada);
+window.addEventListener('load', caberEntrada);
+setTimeout(caberEntrada, 0);
 // Conversa com o Neon pela web (porta 443), com o usuário do aluno escolhido: cada aluno tem um usuário e um
 // schema próprios. O aluno escolhe a turma e o nome e digita a chave dele; a senha do banco vem do cofre do aluno.
 // Cada comando vai sozinho e é gravado na hora, como no Java.
@@ -790,7 +805,7 @@ function modoProfessor(ligar) {
 $('sou-professor').addEventListener('click', () => { modoPrimeiroAcesso(false); modoProfessor(true); $('msg-entrada').hidden = true; });
 $('turma').addEventListener('change', () => {
   carregarAlunos($('turma').value);
-  document.querySelector('.corpo').classList.remove('trancado');
+  document.querySelector('.corpo').classList.remove('trancado'); caberEntrada();
   $('lateral').hidden = false;
   $('exemplos').hidden = false;
   $('campo-prof').hidden = true;
