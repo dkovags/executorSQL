@@ -171,7 +171,7 @@ td.nulo { color: #8B95A5; font-style: italic; }
   <section id="cofre" class="cartao" aria-labelledby="titulo-cofre">
     <form id="form-cofre">
       <div class="campo">
-        <label id="titulo-cofre" for="frase">Chave de Acesso da Turma</label>
+        <label id="titulo-cofre" for="frase">Chave de Acesso da Turma ou da AP2</label>
         <input id="frase" type="password" autocomplete="off" spellcheck="false">
       </div>
       <button id="abrir" type="submit">Desbloquear</button>
@@ -745,6 +745,9 @@ $('form-cofre').addEventListener('submit', async (ev) => {
   try {
     SEGREDO = (await abrir(COFRE, frase)).segredo;
     FRASE = frase;
+    ap2Fixo = null;
+    $('chave-ap2').hidden = false;
+    $('ap2').hidden = true;
     carregarAlunos();
     $('material').hidden = false;
     $('cofre').hidden = true;
@@ -754,6 +757,17 @@ $('form-cofre').addEventListener('submit', async (ev) => {
     $('entrada').hidden = false;
     $('usuario').focus();
   } catch (e) {
+    const ap2 = window.crypto && crypto.subtle ? await schemaDaChaveAp2(normAp2(frase)) : null;
+    if (ap2) {
+      ap2Fixo = { schema: ap2, frase: normAp2(frase) };
+      $('chave-ap2').hidden = true;
+      $('msg-ap2').textContent = '';
+      $('ap2').hidden = false;
+      aviso.className = 'msg info';
+      aviso.textContent = 'Chave da AP2 reconhecida. Baixe a sua prova e a correção no quadro abaixo. Para usar o Executor, digite aqui a chave de acesso da turma.';
+      $('frase').value = '';
+      return;
+    }
     aviso.className = 'msg';
     aviso.textContent = window.crypto && crypto.subtle ? 'Chave de acesso incorreta.' : 'Este navegador não consegue abrir o cofre. Use o Chrome, o Edge ou o Firefox atualizados.';
   } finally {
@@ -794,17 +808,30 @@ document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', 
 // Cada schema de aluno tem os seus dois arquivos (ap2/alunoNN_prova.pdf.enc e ap2/alunoNN_correcao.pdf.enc),
 // cifrados com AES-GCM. A chave AES sai da chave de acesso da AP2 do aluno, entregue pelo professor, por
 // PBKDF2-SHA-256 com 300 mil iterações. O arquivo traz o sal (16 bytes) e o IV (12 bytes) antes do conteúdo.
+// A chave da AP2 também funciona na primeira tela, no lugar da chave da turma: o índice abaixo guarda só o
+// SHA-256 de "ap2:" + chave, que aponta o schema do aluno sem revelar a chave.
+const AP2_IDX = {"8b18d962d5f34d08640805e1ada3eec105ef08f2a291fc37ccaf60c2bb84e180": "aluno01", "e42e990a534db5cceedd4eaec1872fd9f7142ed333211d0ffba515f001fd8a91": "aluno02", "f869d8a72621d686de439a9d7aeec06242a77acde1afd69923d096c18ba500a1": "aluno03", "7bf1d0db0d05e266acaa7616f11b16b17db7297da2b33d991abcff30e3b51e17": "aluno04", "0c5797e6512e7c51041318c92cbf7118f53de2c2f92ff20ce41c15786793171d": "aluno05", "776db6a7dd64e02a624d46a504889bc0ecf32c92b7ccd60eaa84e90690dd3253": "aluno06", "780a1bea54ab6bb893590727231be6abfe4d38bb49afca76abf4637fdd935e8e": "aluno07", "d00a33de7c9cca6db619ce8075d2e30629d1544240877ef1acdc85fc518b582f": "aluno08", "c9c924b17b41e26e308046cbc89ad49363431703fc893f1910ba520bfcbcbc40": "aluno09", "1ae7079bee280bef53fd32726dc7fddbcfeede36b1a6367bee5df2209e763055": "aluno10", "6054bdbef184d01cacf4af7e62d87c2b1db4df4de565f5b56e6554605f4deb15": "aluno11", "7818d9bace639eef254433c1d8cfe5f2a825ba5d1504b2d01968021e26f65ebb": "aluno12"};
+const normAp2 = (t) => t.toUpperCase().replace(/[\s-]/g, '');
+let ap2Fixo = null;
+async function schemaDaChaveAp2(frase) {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`ap2:${frase}`)));
+  return AP2_IDX[[...d].map((x) => x.toString(16).padStart(2, '0')).join('')] || null;
+}
 document.querySelectorAll('.baixar-ap2').forEach((b) => b.addEventListener('click', async () => {
   const msg = $('msg-ap2');
-  const frase = $('chave-ap2').value.toUpperCase().replace(/[\s-]/g, '');
+  const frase = ap2Fixo ? ap2Fixo.frase : normAp2($('chave-ap2').value);
   msg.textContent = '';
   if (!frase) { msg.textContent = 'Digite a sua chave de acesso da AP2.'; $('chave-ap2').focus(); return; }
-  if (!estado.usuario || estado.usuario === 'docente') return;
+  let schema = ap2Fixo ? ap2Fixo.schema : estado.usuario;
+  if (!schema || schema === 'docente') return;
+  const dono = await schemaDaChaveAp2(frase);
+  if (dono && dono !== schema) schema = dono; // a chave manda: abre os arquivos do aluno dono da chave
+  if (!dono) { msg.textContent = 'Chave da AP2 incorreta. Confira a chave entregue pelo professor.'; return; }
   const texto = b.textContent;
   b.disabled = true;
   b.textContent = 'Preparando...';
   try {
-    const r = await fetch(`ap2/${estado.usuario}_${b.dataset.tipo}.pdf.enc`, { cache: 'no-store' });
+    const r = await fetch(`ap2/${schema}_${b.dataset.tipo}.pdf.enc`, { cache: 'no-store' });
     if (r.status === 404) { msg.textContent = 'Não há prova da AP2 registrada para este aluno.'; return; }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const bruto = new Uint8Array(await r.arrayBuffer());
@@ -815,7 +842,7 @@ document.querySelectorAll('.baixar-ap2').forEach((b) => b.addEventListener('clic
     try {
       claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bruto.slice(16, 28) }, chave, bruto.slice(28));
     } catch (e) {
-      msg.textContent = 'Chave incorreta para este aluno. Confira a chave e o nome escolhido na entrada.';
+      msg.textContent = 'Chave da AP2 incorreta. Confira a chave entregue pelo professor.';
       return;
     }
     const url = URL.createObjectURL(new Blob([claro], { type: 'application/pdf' }));
