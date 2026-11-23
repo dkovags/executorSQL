@@ -297,7 +297,7 @@ const BANCO = 'escola';
 // O professor (painel_api.verificar_dono) escolhe entrar no schema docente ou na área de um aluno (acessar_aluno).
 // Atualização automática: o GitHub Pages deixa o navegador guardar a página por até 10 minutos. A página confere
 // versao.txt (sem cache) e, se houver versão nova, recarrega por um endereço novo, que o navegador ainda não guardou.
-const VERSAO = '2026-11-23-02';
+const VERSAO = '2026-11-23-03';
 (async () => {
   try {
     const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: 'no-store' });
@@ -840,7 +840,7 @@ function desenharBotaoGoogle() {
     google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (r) => aoEntrarGoogle(r.credential) });
     desenharBotaoGoogle.pronto = true;
   }
-  google.accounts.id.renderButton($('g-entrar'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR', width: 300 });
+  google.accounts.id.renderButton($('g-entrar'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR', width: Math.max(200, Math.min(300, ($('g-entrar')).parentElement.clientWidth - 2)) });
 }
 $('turma').addEventListener('change', () => { if (sessaoGoogle && sessaoGoogle.tipo === 'prof') carregarAlunos($('turma').value); });
 faseEntrada('google');
