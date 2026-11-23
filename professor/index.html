@@ -114,6 +114,9 @@ tr:nth-child(even) td { background: var(--code-bg); }
 .acao .meta { margin: 0; }
 .marcar { display: flex; gap: 6px; align-items: baseline; margin-top: 6px !important; cursor: pointer; }
 .controles { display: flex; gap: 8px; align-items: center; }
+.combo { height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); color: var(--fg); font: inherit; min-width: 160px; }
+#acao-alunos .controles { flex-wrap: wrap; }
+#al-nome { min-width: 240px; }
 #qtd { height: 36px; width: 80px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); font-variant-numeric: tabular-nums; }
 button.btn.perigo { color: var(--err); border-color: var(--err); }
 button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
@@ -253,7 +256,20 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
   <section id="admin" class="painel admin" aria-labelledby="titulo-admin" hidden>
     <div class="painel-cab"><h2 id="titulo-admin">Administração do Banco de Dados</h2></div>
     <div class="admin-corpo">
-      <div class="acao"><div><h3>Turma</h3><p class="meta">A lista de cada turma agora é importada na Área do professor do portal (kovags.com/academico/professor, opção Turmas). Cada aluno da lista ganha usuário e schema automaticamente e entra com a conta do Gmail, sem senha.</p></div></div>
+      <div class="acao" id="acao-alunos">
+        <div>
+          <h3>Alunos da turma</h3>
+          <p class="meta">Escolha o aluno para alterar o nome ou excluí-lo. Excluir apaga o <i>schema</i> e as tabelas dele. Alunos novos entram pela lista da turma, na Área do professor (Turmas); o acesso é pela conta do Gmail, sem senha.</p>
+        </div>
+        <div class="controles">
+          <select id="al-turma" class="combo" aria-label="Turma"></select>
+          <select id="al-aluno" class="combo" aria-label="Aluno"></select>
+          <input id="al-nome" class="combo" type="text" maxlength="100" placeholder="Nome do aluno" aria-label="Nome do aluno">
+          <button id="al-renomear" class="btn" type="button">Alterar nome</button>
+          <button id="al-excluir" class="btn perigo" type="button">Excluir</button>
+        </div>
+        <p id="al-msg" class="aviso info" hidden></p>
+      </div>
       <div class="acao" id="acao-turma" hidden>
         <div>
           <h3>Turma</h3>
@@ -1037,6 +1053,57 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && es
   await carregar();
   agendar();
 })();
+
+// ---------------------------------------------------------------- alunos da turma: alterar nome ou excluir
+async function rpcAlunos(nome, corpo) {
+  const r = await fetch(`${DATA_API}/rpc/${nome}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` }, body: JSON.stringify(corpo || {}) });
+  const d = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((d && d.message) || `Erro ${r.status}`);
+  return d;
+}
+function msgAlunos(t, info) { const m = document.getElementById('al-msg'); m.className = info ? 'aviso info' : 'aviso'; m.textContent = t || ''; m.hidden = !t; }
+let alunosTurma = [];
+async function carregarTurmasAdmin() {
+  try {
+    const turmas = await rpcAlunos('turmas_professor');
+    const sel = document.getElementById('al-turma');
+    sel.replaceChildren(...turmas.map((t) => { const o = document.createElement('option'); o.value = t.codigo; o.textContent = t.codigo; return o; }));
+    await carregarAlunosAdmin();
+  } catch (e) { msgAlunos('Não consegui ler as turmas: ' + e.message); }
+}
+async function carregarAlunosAdmin(manter) {
+  const sel = document.getElementById('al-aluno');
+  try {
+    alunosTurma = await rpcAlunos('turma_lista', { p_codigo: document.getElementById('al-turma').value });
+    sel.replaceChildren(...alunosTurma.map((a) => { const o = document.createElement('option'); o.value = a.usuario; o.textContent = `${a.nome} (${a.usuario})`; return o; }));
+    if (manter && alunosTurma.some((a) => a.usuario === manter)) sel.value = manter;
+    preencherNomeAdmin();
+  } catch (e) { msgAlunos('Não consegui ler os alunos: ' + e.message); }
+}
+function preencherNomeAdmin() {
+  const a = alunosTurma.find((x) => x.usuario === document.getElementById('al-aluno').value);
+  document.getElementById('al-nome').value = a ? a.nome : '';
+  const b = document.getElementById('al-excluir'); b.classList.remove('confirmar'); b.textContent = 'Excluir';
+}
+document.getElementById('al-turma').addEventListener('change', () => carregarAlunosAdmin());
+document.getElementById('al-aluno').addEventListener('change', preencherNomeAdmin);
+document.getElementById('al-renomear').addEventListener('click', async (ev) => {
+  const u = document.getElementById('al-aluno').value; if (!u) return;
+  ev.target.disabled = true;
+  try { const r = await rpcAlunos('aluno_renomear', { p_usuario: u, p_nome: document.getElementById('al-nome').value }); msgAlunos(`Nome alterado para ${r.nome}.`, true); await carregarAlunosAdmin(u); }
+  catch (e) { msgAlunos(e.message); }
+  finally { ev.target.disabled = false; }
+});
+document.getElementById('al-excluir').addEventListener('click', async (ev) => {
+  const b = ev.target, u = document.getElementById('al-aluno').value; if (!u) return;
+  if (!b.classList.contains('confirmar')) { b.classList.add('confirmar'); b.textContent = 'Confirmar exclusão'; setTimeout(() => { b.classList.remove('confirmar'); b.textContent = 'Excluir'; }, 5000); return; }
+  b.disabled = true;
+  const nome = (alunosTurma.find((x) => x.usuario === u) || {}).nome || u;
+  try { await rpcAlunos('turma_remover_aluno', { p_usuario: u }); msgAlunos(`${nome} foi excluído da turma; o schema ${u} foi apagado.`, true); await carregarAlunosAdmin(); if (typeof carregar === 'function') carregar(); }
+  catch (e) { msgAlunos(e.message); }
+  finally { b.disabled = false; b.classList.remove('confirmar'); b.textContent = 'Excluir'; }
+});
+loginPronto.then(() => setTimeout(carregarTurmasAdmin, 500));
 </script>
 
 </body>
