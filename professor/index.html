@@ -375,8 +375,17 @@ function mostrarLogin(msg) {
   if (window.google && google.accounts) google.accounts.id.prompt();
 }
 
+// Registro de acessos do portal (kovags.com/registro.php): o servidor grava o IP; com o token do Google, confere o e-mail
+function registrar(funcionalidade, extra) {
+  try {
+    const d = Object.assign({ pagina: location.href.replace(/\?.*$/, ''), funcionalidade }, extra || {});
+    const corpo = JSON.stringify(d);
+    if (!(navigator.sendBeacon && navigator.sendBeacon('https://kovags.com/registro.php', new Blob([corpo], { type: 'text/plain' })))) fetch('https://kovags.com/registro.php', { method: 'POST', body: corpo, keepalive: true, mode: 'no-cors' }).catch(() => {});
+  } catch (e) { /* o registro nunca atrapalha a página */ }
+}
 function aoEntrar(resposta) {
   tokenGoogle = resposta.credential;
+  registrar('entrou no Painel de Execução de SQL', { token: tokenGoogle });
   try { sessionStorage.setItem('painel_token', tokenGoogle); } catch (e) { /* aba privada */ }
   document.getElementById('login').hidden = true;
   liberar();
