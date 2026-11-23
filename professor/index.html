@@ -188,6 +188,25 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
   #fundo.aberto { display: block; position: fixed; inset: 0; z-index: 29; background: rgba(13, 22, 38, 0.45); }
   body.travado { overflow: hidden; }
 }
+/* Administração do Banco de Dados: menu lateral, aberto pelo botão da barra do topo */
+#admin { display: none; }
+#admin.aberta {
+  display: block; position: fixed; top: 0; right: 0; bottom: 0; left: auto; z-index: 30; width: min(620px, 94vw); max-height: none;
+  overflow-y: auto; margin: 0; border-radius: 0; border: 0; border-left: 3px solid var(--ouro);
+  box-shadow: -10px 0 34px rgba(15, 43, 91, 0.28); animation: entraLado .18s ease-out;
+}
+@keyframes entraLado { from { transform: translateX(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+#admin.aberta .fechar-painel { display: flex; position: sticky; top: 0; z-index: 2; justify-content: space-between; align-items: center;
+  padding: 14px 16px 12px; background: var(--card); border-bottom: 1px solid var(--line); }
+#admin.aberta .fechar-painel b { font: 700 18px/1.2 var(--serif); color: var(--navy); }
+#admin.aberta > .painel-cab { display: none; }
+#admin .acao { flex-wrap: wrap; }
+#admin .acao > div:first-child { flex: 1 1 100%; }
+#admin .controles { flex-wrap: wrap; }
+#fundo.aberto { display: block; position: fixed; inset: 0; z-index: 29; background: rgba(13, 22, 38, 0.45); }
+body.travado { overflow: hidden; }
+#abrir-admin[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { #admin.aberta { animation: none; } }
 </style>
 </head>
 <body>
@@ -202,6 +221,7 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
       <span id="quem" class="chip">Sem identificação</span>
       <label class="auto"><input id="auto" type="checkbox" checked> Atualizar sozinho a cada 15 s</label>
       <button id="atualizar" class="btn" type="button">Atualizar agora</button>
+      <button id="abrir-admin" class="btn" type="button" hidden aria-controls="admin">Administração do Banco de Dados</button>
       <button id="sair" class="btn" type="button" hidden>Sair</button>
     </div>
   </div>
@@ -1011,6 +1031,11 @@ function abrirPainel(id) {
   p.scrollTop = 0;
 }
 document.querySelectorAll('.atalhos-prof button').forEach((b) => b.addEventListener('click', () => abrirPainel(b.dataset.painel)));
+$('abrir-admin').addEventListener('click', () => abrirPainel('admin'));
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharPaineis(); });
+// o botão do menu lateral aparece junto com a seção de administração (só para o professor)
+new MutationObserver(() => { $('abrir-admin').hidden = $('admin').hidden; }).observe($('admin'), { attributes: true, attributeFilter: ['hidden'] });
+$('abrir-admin').hidden = $('admin').hidden;
 $('fundo').addEventListener('click', fecharPaineis);
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharPaineis(); });
 window.matchMedia('(max-width: 820px)').addEventListener('change', (ev) => { if (!ev.matches) fecharPaineis(); });
