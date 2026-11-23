@@ -290,6 +290,11 @@ body.travado { overflow: hidden; }
           <button id="al-excluir" class="btn perigo" type="button">Excluir</button>
         </div>
         <p id="al-msg" class="aviso info" hidden></p>
+        <div class="controles" style="margin-top:10px">
+          <span class="meta" style="margin-right:auto">Histórico de comandos executados (as tabelas e os dados ficam):</span>
+          <button id="al-limpar-aluno" class="btn perigo" type="button" data-texto="Limpar do aluno">Limpar do aluno</button>
+          <button id="al-limpar-turma" class="btn perigo" type="button" data-texto="Limpar da turma">Limpar da turma</button>
+        </div>
       </div>
       <div class="acao" id="acao-turma" hidden>
         <div>
@@ -1120,6 +1125,30 @@ function preencherNomeAdmin() {
   document.getElementById('al-nome').value = a ? a.nome : '';
   const b = document.getElementById('al-excluir'); b.classList.remove('confirmar'); b.textContent = 'Excluir';
 }
+// limpar o histórico de comandos: o primeiro clique pede confirmação, o segundo apaga
+function limparComandos(botao, deAluno) {
+  botao.addEventListener('click', async () => {
+    const turma = document.getElementById('al-turma').value, u = document.getElementById('al-aluno').value;
+    if (!turma || (deAluno && !u)) return;
+    if (!botao.classList.contains('confirmar')) {
+      botao.classList.add('confirmar');
+      botao.textContent = deAluno ? 'Confirmar: apagar os comandos deste aluno' : `Confirmar: apagar os comandos de ${turma}`;
+      setTimeout(() => { botao.classList.remove('confirmar'); botao.textContent = botao.dataset.texto; }, 6000);
+      return;
+    }
+    botao.classList.remove('confirmar'); botao.textContent = botao.dataset.texto; botao.disabled = true;
+    try {
+      const r = await rpcAlunos('limpar_comandos', { p_turma: turma, p_usuario: deAluno ? u : null });
+      const nome = deAluno ? (alunosTurma.find((a) => a.usuario === u) || {}).nome || u : `a turma ${turma}`;
+      msgAlunos(`${r.apagados} ${r.apagados === 1 ? 'comando apagado' : 'comandos apagados'} do histórico de ${nome}.`, true);
+      registrarAcesso(`limpou o histórico de comandos de ${deAluno ? u : turma}`, { token: tokenGoogle || undefined });
+      if (typeof carregar === 'function') await carregar();
+    } catch (e) { msgAlunos(e.message); }
+    finally { botao.disabled = false; }
+  });
+}
+limparComandos(document.getElementById('al-limpar-aluno'), true);
+limparComandos(document.getElementById('al-limpar-turma'), false);
 document.getElementById('al-turma').addEventListener('change', () => carregarAlunosAdmin());
 document.getElementById('al-aluno').addEventListener('change', preencherNomeAdmin);
 document.getElementById('al-renomear').addEventListener('click', async (ev) => {
