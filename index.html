@@ -297,7 +297,7 @@ const BANCO = 'escola';
 // O professor (painel_api.verificar_dono) escolhe entrar no schema docente ou na área de um aluno (acessar_aluno).
 // Atualização automática: o GitHub Pages deixa o navegador guardar a página por até 10 minutos. A página confere
 // versao.txt (sem cache) e, se houver versão nova, recarrega por um endereço novo, que o navegador ainda não guardou.
-const VERSAO = '2026-11-23-04';
+const VERSAO = '2026-11-23-05';
 (async () => {
   try {
     const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: 'no-store' });
@@ -752,6 +752,13 @@ async function carregarAlunos(turma) {
   } catch (e) { lista = null; }
   const prof = el('optgroup'); prof.label = 'Professor';
   prof.append(opcao('Professor · meu schema, para exemplos em aula', 'docente'));
+  const tp = turmasProf.find((x) => x.codigo === turma);
+  if (tp && tp.executor_liberado === false) {
+    // turma sem o Executor liberado: os alunos não entram no banco; o professor usa só o próprio schema
+    const g = el('optgroup'); g.label = `${turma} · Executor bloqueado para a turma`;
+    const o = opcao('Libere o Executor da turma na Área do professor', ''); o.disabled = true; g.append(o);
+    sel.replaceChildren(prof, g); sel.value = 'docente'; sel.disabled = false; return;
+  }
   if (!lista) { sel.replaceChildren(prof); sel.value = 'docente'; sel.disabled = false; return; }
   const grupo = el('optgroup'); grupo.label = turma;
   grupo.append(...lista.map((a) => opcao(a.nome, a.usuario)));
@@ -798,9 +805,12 @@ async function aoEntrarGoogle(credencial) {
     const r = await rpc('entrar_aluno_google');
     const res = r.dados || {};
     if (r.ok && res.ok) {
-      const turmas = Array.isArray(res.turmas) ? res.turmas : [];
+      const todas = Array.isArray(res.turmas) ? res.turmas : [];
+      // só as turmas em que o professor liberou o Executor de SQL
+      const turmas = todas.filter((t) => t.executor !== false && t.senha_banco);
       sessaoGoogle = { tipo: 'aluno', res, turmas };
-      if (!turmas.length) { avisar('A sua conta ainda não tem turma. Fale com o professor.'); faseEntrada('google'); return; }
+      if (!todas.length) { avisar('A sua conta ainda não tem turma. Fale com o professor.'); faseEntrada('google'); return; }
+      if (!turmas.length) { avisar('O Executor de SQL não está liberado para a sua turma. Fale com o professor.'); faseEntrada('google'); return; }
       if (turmas.length === 1) { await abrirAluno(res, turmas[0].codigo); return; }
       if (turmaPreferida && turmas.some((t) => t.codigo === turmaPreferida)) { await abrirAluno(res, turmaPreferida); return; }
       preencherTurmas(turmas.map((t) => ({ codigo: t.codigo, rotulo: `${t.codigo} · ${t.nome_turma}` })));
