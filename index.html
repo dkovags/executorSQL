@@ -297,7 +297,7 @@ const BANCO = 'escola';
 // O professor (painel_api.verificar_dono) escolhe entrar no schema docente ou na área de um aluno (acessar_aluno).
 // Atualização automática: o GitHub Pages deixa o navegador guardar a página por até 10 minutos. A página confere
 // versao.txt (sem cache) e, se houver versão nova, recarrega por um endereço novo, que o navegador ainda não guardou.
-const VERSAO = '2026-11-23-03';
+const VERSAO = '2026-11-23-04';
 (async () => {
   try {
     const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: 'no-store' });
@@ -802,6 +802,7 @@ async function aoEntrarGoogle(credencial) {
       sessaoGoogle = { tipo: 'aluno', res, turmas };
       if (!turmas.length) { avisar('A sua conta ainda não tem turma. Fale com o professor.'); faseEntrada('google'); return; }
       if (turmas.length === 1) { await abrirAluno(res, turmas[0].codigo); return; }
+      if (turmaPreferida && turmas.some((t) => t.codigo === turmaPreferida)) { await abrirAluno(res, turmaPreferida); return; }
       preencherTurmas(turmas.map((t) => ({ codigo: t.codigo, rotulo: `${t.codigo} · ${t.nome_turma}` })));
       destrancar();
       faseEntrada('turma');
@@ -818,7 +819,9 @@ async function aoEntrarGoogle(credencial) {
         destrancar();
         faseEntrada('prof');
         avisar('Acesso do professor: o seu schema já vem escolhido. Clique em Entrar, ou escolha a área de um aluno.', true);
-        carregarAlunos(turmasProf.length ? turmasProf[0].codigo : '');
+        const tp = turmaPreferida && turmasProf.some((x) => x.codigo === turmaPreferida) ? turmaPreferida : (turmasProf.length ? turmasProf[0].codigo : '');
+        if (tp) $('turma').value = tp;
+        carregarAlunos(tp);
         return;
       }
       avisar(`A conta ${res.email} ainda não está vinculada a uma turma. Abra a Área do aluno (kovags.com/academico/aluno) para cadastrar o seu Gmail, ou fale com o professor.`);
@@ -842,6 +845,16 @@ function desenharBotaoGoogle() {
   }
   google.accounts.id.renderButton($('g-entrar'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR', width: Math.max(200, Math.min(300, ($('g-entrar')).parentElement.clientWidth - 2)) });
 }
+// Embutido na Área do aluno (kovags.com), o portal repassa o login do Google e a disciplina aberta,
+// para o aluno não entrar duas vezes. Só aceita a mensagem vinda do portal.
+let turmaPreferida = '';
+window.addEventListener('message', (ev) => {
+  if (ev.origin !== 'https://kovags.com' || !ev.data || ev.data.tipo !== 'token-google' || typeof ev.data.token !== 'string') return;
+  if (ev.data.token === tokenGoogle) return;
+  turmaPreferida = typeof ev.data.turma === 'string' ? ev.data.turma : '';
+  aoEntrarGoogle(ev.data.token);
+});
+try { if (window.parent !== window) window.parent.postMessage({ tipo: 'executor-pronto' }, 'https://kovags.com'); } catch (e) { /* fora do portal */ }
 $('turma').addEventListener('change', () => { if (sessaoGoogle && sessaoGoogle.tipo === 'prof') carregarAlunos($('turma').value); });
 faseEntrada('google');
 
