@@ -298,7 +298,7 @@ const BANCO = 'escola';
 // O usuário portal, cuja senha fica aqui, só lê a lista de nomes que o professor usa; não lê nenhum dado.
 // Atualização automática: o GitHub Pages deixa o navegador guardar a página por até 10 minutos. A página confere
 // versao.txt (sem cache) e, se houver versão nova, recarrega por um endereço novo, que o navegador ainda não guardou.
-const VERSAO = '2026-11-22-15';
+const VERSAO = '2026-11-22-16';
 (async () => {
   try {
     const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: 'no-store' });
@@ -746,7 +746,7 @@ async function carregarAlunos(turma) {
   } catch (e) { lista = null; }
   if (!lista) { sel.replaceChildren(opcao('Turma indisponível', '')); avisar('Não consegui ler a lista da turma. Confira a internet e tente de novo.'); return; }
   const prof = el('optgroup'); prof.label = 'Professor';
-  prof.append(opcao('Professor (schema docente)', 'docente'));
+  prof.append(opcao('Professor · meu schema, para exemplos em aula', 'docente'));
   const grupo = el('optgroup'); grupo.label = turma;
   grupo.append(...lista.map((a) => opcao(a.nome, a.usuario)));
   sel.replaceChildren(prof, grupo);
