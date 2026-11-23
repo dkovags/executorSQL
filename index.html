@@ -67,7 +67,9 @@ input[type=password] { height: 40px; width: 280px; max-width: 100%; padding: 0 1
 #form-cofre { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
 .material { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-block: 12px; }
 .material a { color: var(--navy); font-weight: 700; }
-#g-prof { min-height: 44px; }
+#g-entrar { min-height: 44px; }
+#via-google { margin: 4px 0 2px; }
+#sair-google { margin-left: 8px; }
 .material .baixar, .material .baixar-ap2 { height: auto; min-height: 34px; padding: 6px 12px; line-height: 1.3; white-space: normal; text-align: left; }
 @media (max-width: 700px) { .material .baixar, .material .baixar-ap2 { width: 100%; min-height: 44px; } }
 select:disabled { color: var(--cinza); background: var(--painel); }
@@ -213,42 +215,25 @@ td.nulo { color: #8B95A5; font-style: italic; }
       <h2>Entre no seu ambiente</h2>
       <p>Cada aluno tem um <i>schema</i> próprio no banco da turma. O que você cria, altera ou apaga aqui fica só no seu <i>schema</i>.</p>
     </div>
-    <form id="form-entrada">
-      <div class="campo">
+    <div id="via-google">
+      <div id="g-entrar"></div>
+    </div>
+    <form id="form-entrada" hidden>
+      <div class="campo" id="campo-turma">
         <label for="turma">Turma</label>
-        <select id="turma">
-          <option value="" disabled selected>Escolha a turma</option>
-        </select>
+        <select id="turma"></select>
       </div>
-      <div class="campo">
-        <label id="titulo-entrada" for="usuario">Aluno</label>
-        <select id="usuario" disabled>
-          <option value="">Escolha a turma primeiro</option>
-        </select>
-      </div>
-      <div class="campo" id="campo-chave">
-        <label for="chave-aluno">Senha</label>
-        <input id="chave-aluno" type="password" autocomplete="current-password" spellcheck="false" maxlength="64">
-      </div>
-      <div class="campo" id="campo-nova" hidden>
-        <label for="nova-senha">Nova senha</label>
-        <input id="nova-senha" type="password" autocomplete="new-password" spellcheck="false" maxlength="64">
-      </div>
-      <div class="campo" id="campo-confirma" hidden>
-        <label for="confirma-senha">Repita a nova senha</label>
-        <input id="confirma-senha" type="password" autocomplete="new-password" spellcheck="false" maxlength="64">
-      </div>
-      <div class="campo" id="campo-prof" hidden>
-        <span class="rotulo">Conta Google do professor</span>
-        <div id="g-prof"></div>
+      <div class="campo" id="campo-usuario" hidden>
+        <label id="titulo-entrada" for="usuario">Entrar como</label>
+        <select id="usuario"><option value="">Carregando a turma...</option></select>
       </div>
       <button id="entrar" type="submit">Entrar</button>
-      <button id="sou-professor" class="secundario" type="button" hidden>Entrar como professor</button>
+      <button id="sair-google" class="secundario" type="button">Sair</button>
     </form>
     <p id="msg-entrada" class="msg" hidden></p>
     <ol class="passos">
-      <li><b>Turma e nome</b>Escolha a turma e o seu nome na lista.</li>
-      <li><b>Senha</b>No primeiro acesso, use a senha provisória do professor e crie a sua.</li>
+      <li><b>Conta Google</b>Entre com a conta Gmail que você informou ao professor.</li>
+      <li><b>Turma</b>Se você estiver em mais de uma turma, escolha em qual quer entrar.</li>
       <li><b>Comandos</b>Escreva no editor. As suas tabelas e os exemplos de comandos ficam ao lado dele.</li>
     </ol>
   </section>
@@ -306,14 +291,14 @@ setTimeout(caberEntrada, 0);
 // Cada comando vai sozinho e é gravado na hora, como no Java.
 const HOST = 'ep-shy-violet-b6f4h26u.c-2.sa-east-1.aws.neon.tech';
 const BANCO = 'escola';
-// Turmas. A lista de alunos vem do banco, pelo usuário portal, que só executa as funções portal.alunos(),
-// portal.entrar() e portal.trocar_senha(). A senha dele fica aqui de propósito: ela não dá acesso a nenhum dado.
-// A senha de cada aluno é conferida no banco (hash bcrypt), com bloqueio de 10 minutos depois de 5 erros. Só com a
-// senha certa o banco devolve a senha do usuário do aluno, a chave dos arquivos da AP2 dele e a dos cadernos.
-// No primeiro acesso, com a senha provisória entregue pelo professor, o aluno precisa criar uma senha nova.
+// Entrada só com a conta Google. painel_api.entrar_aluno_google confere o token (emissor, aplicativo, validade,
+// e-mail verificado), acha o aluno pelo e-mail cadastrado e devolve a senha do usuário dele no banco, as chaves dos
+// arquivos e as turmas em que está matriculado (professor.matricula). Com uma turma só, o aluno entra direto.
+// O professor (painel_api.verificar_dono) escolhe entrar no schema docente ou na área de um aluno (acessar_aluno).
+// O usuário portal, cuja senha fica aqui, só lê a lista de nomes que o professor usa; não lê nenhum dado.
 // Atualização automática: o GitHub Pages deixa o navegador guardar a página por até 10 minutos. A página confere
 // versao.txt (sem cache) e, se houver versão nova, recarrega por um endereço novo, que o navegador ainda não guardou.
-const VERSAO = '2026-11-22-14';
+const VERSAO = '2026-11-22-15';
 (async () => {
   try {
     const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: 'no-store' });
@@ -348,7 +333,8 @@ async function abrir(cofre, frase) {
   const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desB64(cofre.iv) }, chave, desB64(cofre.dados));
   return JSON.parse(new TextDecoder().decode(claro));
 }
-const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: null, material: null, provisoria: null, viaGoogle: false };
+const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: null, material: null };
+let sessaoGoogle = null; // { tipo: 'aluno', res } ou { tipo: 'prof' }
 const $ = (id) => document.getElementById(id);
 
 // divide o texto em comandos pelo ";", sem cortar dentro de aspas nem de comentários
@@ -747,10 +733,9 @@ async function atualizarLateral() {
   }
 }
 
-// A lista vem do banco (portal.alunos()), em ordem alfabética, e termina no professor
+// Para o professor: a lista vem do banco (portal.alunos()), em ordem alfabética, e começa pelo schema docente
 async function carregarAlunos(turma) {
   const sel = $('usuario');
-  const aviso = $('msg-entrada');
   const opcao = (texto, valor) => { const o = el('option', '', texto); o.value = valor; return o; };
   sel.disabled = true;
   sel.replaceChildren(opcao('Carregando a turma...', ''));
@@ -759,81 +744,96 @@ async function carregarAlunos(turma) {
     const r = await consultar('SELECT usuario, nome FROM portal.alunos()', PORTAL.usuario, PORTAL.senha);
     lista = r.rows.map(([usuario, nome]) => ({ usuario, nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   } catch (e) { lista = null; }
-  if (!lista) {
-    sel.replaceChildren(opcao('Turma indisponível', ''));
-    aviso.className = 'msg';
-    aviso.textContent = 'Não consegui ler a lista da turma. Confira a internet e escolha a turma de novo.';
-    aviso.hidden = false;
-    return;
-  }
-  const primeira = opcao('Escolha seu nome', '');
-  primeira.disabled = true;
-  const grupo = el('optgroup');
-  grupo.label = turma;
+  if (!lista) { sel.replaceChildren(opcao('Turma indisponível', '')); avisar('Não consegui ler a lista da turma. Confira a internet e tente de novo.'); return; }
+  const prof = el('optgroup'); prof.label = 'Professor';
+  prof.append(opcao('Professor (schema docente)', 'docente'));
+  const grupo = el('optgroup'); grupo.label = turma;
   grupo.append(...lista.map((a) => opcao(a.nome, a.usuario)));
-  const prof = el('optgroup');
-  prof.label = 'Professor';
-  prof.append(opcao('Professor', 'docente'));
-  sel.replaceChildren(primeira, grupo, prof);
-  sel.value = '';
+  sel.replaceChildren(prof, grupo);
+  sel.value = 'docente';
   sel.disabled = false;
 }
-TURMAS.forEach((t) => { const o = el('option', '', t); o.value = t; $('turma').append(o); });
-function modoPrimeiroAcesso(ligar) {
-  $('campo-nova').hidden = !ligar;
-  $('campo-confirma').hidden = !ligar;
-  $('campo-chave').hidden = ligar || $('usuario').value === 'docente' || estado.viaGoogle;
-  $('usuario').disabled = ligar;
-  $('turma').disabled = ligar;
-  $('entrar').textContent = ligar ? 'Salvar e entrar' : 'Entrar';
-  if (ligar) $('sou-professor').hidden = true;
-  $('nova-senha').value = '';
-  $('confirma-senha').value = '';
-  if (!ligar) estado.provisoria = null;
+function avisar(texto, info = false) { const a = $('msg-entrada'); a.className = info ? 'msg info' : 'msg'; a.textContent = texto; a.hidden = !texto; }
+function preencherTurmas(lista) {
+  $('turma').replaceChildren(...lista.map((t) => { const o = el('option', '', t); o.value = t; return o; }));
 }
-// O professor entra na área de qualquer aluno com a conta Google: o banco confere o login e devolve o acesso do aluno,
-// sem mexer na senha dele.
-function modoProfessor(ligar) {
-  const aluno = Boolean($('usuario').value) && $('usuario').value !== 'docente';
-  estado.viaGoogle = ligar && aluno;
-  $('campo-prof').hidden = !(estado.viaGoogle || $('usuario').value === 'docente');
-  $('campo-chave').hidden = estado.viaGoogle || $('usuario').value === 'docente';
-  $('entrar').hidden = estado.viaGoogle || $('usuario').value === 'docente';
-  $('sou-professor').hidden = !aluno || estado.viaGoogle;
-  if (estado.viaGoogle) desenharBotaoGoogle();
+// fases da tela de entrada: 'google' (só o botão), 'turma' (aluno com mais de uma turma) e 'prof'
+function faseEntrada(fase) {
+  $('via-google').hidden = fase !== 'google';
+  $('form-entrada').hidden = fase === 'google';
+  $('campo-turma').hidden = !(fase === 'turma' || (fase === 'prof' && TURMAS.length > 1));
+  $('campo-usuario').hidden = fase !== 'prof';
+  if (fase === 'google') { sessaoGoogle = null; tokenGoogle = null; desenharBotaoGoogle(); }
+  caberEntrada();
 }
-$('sou-professor').addEventListener('click', () => { modoPrimeiroAcesso(false); modoProfessor(true); $('msg-entrada').hidden = true; });
-$('turma').addEventListener('change', () => {
-  carregarAlunos($('turma').value);
-  document.querySelector('.corpo').classList.remove('trancado'); caberEntrada();
+function destrancar() {
+  document.querySelector('.corpo').classList.remove('trancado');
   $('lateral').hidden = false;
   $('exemplos').hidden = false;
-  $('campo-prof').hidden = true;
-  $('campo-chave').hidden = false;
-  $('entrar').hidden = false;
-  $('msg-entrada').hidden = true;
-  modoPrimeiroAcesso(false);
-  modoProfessor(false);
-  $('usuario').focus();
-});
-$('usuario').addEventListener('change', () => {
-  const prof = $('usuario').value === 'docente';
-  $('campo-prof').hidden = !prof;
-  $('campo-chave').hidden = prof;
-  modoPrimeiroAcesso(false);
-  modoProfessor(false);
-  $('entrar').hidden = prof; // o professor entra pelo botão do Google, que já envia o formulário
-  if (prof) desenharBotaoGoogle();
-  if (['Escolha seu nome na lista.', 'Entre com a conta Google do professor.'].includes($('msg-entrada').textContent)) $('msg-entrada').hidden = true;
-});
+  caberEntrada();
+}
+async function rpc(nome, corpo) {
+  let resp;
+  try {
+    resp = await fetch(`${DATA_API}/rpc/${nome}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` },
+      body: JSON.stringify(corpo || {}),
+    });
+  } catch (e) { throw { rede: true }; }
+  const dados = await resp.json().catch(() => null);
+  return { ok: resp.ok, status: resp.status, dados: typeof dados === 'string' ? JSON.parse(dados) : dados };
+}
+async function aoEntrarGoogle(credencial) {
+  tokenGoogle = credencial;
+  avisar('Conferindo o login. Pode levar alguns segundos.', true);
+  try {
+    const r = await rpc('entrar_aluno_google');
+    const res = r.dados || {};
+    if (r.ok && res.ok) {
+      sessaoGoogle = { tipo: 'aluno', res };
+      const turmas = (Array.isArray(res.disciplinas) ? res.disciplinas : []).filter((t) => TURMAS.includes(t));
+      if (!turmas.length) { avisar('A sua conta ainda não tem turma liberada no Executor. Fale com o professor.'); faseEntrada('google'); return; }
+      if (turmas.length === 1) { await abrirAluno(res, turmas[0]); return; }
+      preencherTurmas(turmas);
+      destrancar();
+      faseEntrada('turma');
+      avisar('Escolha a turma em que você quer entrar.', true);
+      return;
+    }
+    if (r.ok && res.erro === 'sem_cadastro') {
+      const d = await rpc('verificar_dono');
+      if (d.ok && d.dados && d.dados.ok) {
+        sessaoGoogle = { tipo: 'prof' };
+        preencherTurmas(TURMAS);
+        destrancar();
+        faseEntrada('prof');
+        avisar('Acesso do professor: escolha o schema docente ou a área de um aluno.', true);
+        carregarAlunos(TURMAS[0]);
+        return;
+      }
+      avisar(`A conta ${res.email} não está cadastrada. Entre com a conta Gmail que você informou ao professor, ou peça a ele para cadastrar este e-mail.`);
+      faseEntrada('google');
+      return;
+    }
+    if (r.ok && res.erro === 'sem_disciplina') { avisar('A sua conta ainda não tem turma liberada. Fale com o professor.'); faseEntrada('google'); return; }
+    avisar('O login do Google não foi aceito. Tente de novo.');
+    faseEntrada('google');
+  } catch (e) {
+    const t = textoErro(e);
+    avisar([t.msg, t.dica].filter(Boolean).join(' '));
+    faseEntrada('google');
+  }
+}
 function desenharBotaoGoogle() {
   if (!(window.google && google.accounts && google.accounts.id)) { setTimeout(desenharBotaoGoogle, 300); return; }
   if (!desenharBotaoGoogle.pronto) {
-    google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (r) => { tokenGoogle = r.credential; $('form-entrada').requestSubmit(); } });
+    google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (r) => aoEntrarGoogle(r.credential) });
     desenharBotaoGoogle.pronto = true;
   }
-  google.accounts.id.renderButton($('g-prof'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR' });
+  google.accounts.id.renderButton($('g-entrar'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR', width: 300 });
 }
+faseEntrada('google');
 
 // ---------------------------------------------------------------- cadernos da revisão, abertos com a chave que vem do cofre do aluno
 document.querySelectorAll('.baixar').forEach((b) => b.addEventListener('click', async () => {
@@ -911,142 +911,85 @@ document.querySelectorAll('.baixar-ap2').forEach((b) => b.addEventListener('clic
 }));
 
 // ---------------------------------------------------------------- entrada
+async function abrirAluno(res, turma) {
+  const temAp2 = await existeAp2(res.usuario);
+  await conectar({ usuario: res.usuario, senha: res.senha_banco, nome: res.nome || res.usuario, material: res.material, chave: temAp2 ? res.chave_arquivos : null, temAp2, mestra: false, turma });
+}
+// liga a tela de trabalho com o usuário do banco já conferido
+async function conectar(c) {
+  avisar(c.usuario === 'docente' ? 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.' : 'Abrindo o seu ambiente. Pode levar alguns segundos.', true);
+  const r = await consultar('SELECT current_user', c.usuario, c.senha);
+  estado.usuario = c.usuario === 'docente' ? 'docente' : r.rows[0][0];
+  estado.senha = c.senha;
+  estado.nome = c.nome;
+  if (sessaoGoogle && sessaoGoogle.tipo === 'aluno') tokenGoogle = null; // o token do aluno só serviu para abrir a área dele
+  $('status').textContent = `${estado.nome} · ${estado.usuario}${c.mestra ? ' · acesso do professor' : ''}`;
+  $('trocar').textContent = sessaoGoogle && sessaoGoogle.tipo === 'prof' ? 'Trocar de usuário' : 'Sair';
+  $('status').classList.add('ligado');
+  destrancar();
+  $('entrada').hidden = true;
+  $('trabalho').hidden = false;
+  $('historico').hidden = false;
+  if (!$('historico').children.length) $('historico').append(el('p', 'vazio', 'Os comandos executados aparecem aqui, os mais recentes em cima.'));
+  avisar('');
+  estado.chave = c.chave;
+  estado.material = c.material;
+  $('material').hidden = c.usuario === 'docente' || !c.material;
+  $('msg-ap2').textContent = '';
+  $('ap2').hidden = !c.temAp2;
+  atualizarLateral();
+  $('sql').focus();
+}
 $('form-entrada').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  const sel = $('usuario');
-  const usuario = sel.value;
-  const aviso = $('msg-entrada');
-  const recusar = (texto, campo) => { aviso.className = 'msg'; aviso.textContent = texto; aviso.hidden = false; campo.focus(); };
-  if (!usuario) { recusar('Escolha seu nome na lista.', sel); return; }
-  if (usuario === 'docente' && !tokenGoogle) { recusar('Entre com a conta Google do professor.', sel); return; }
-  let senha = null;
-  let material = null;
-  let chaveArquivos = null;
-  let mestra = false;
-  let pedido = null;
-  if (usuario !== 'docente' && estado.viaGoogle) {
-    if (!tokenGoogle) { recusar('Entre com a conta Google do professor.', sel); return; }
-  } else if (usuario !== 'docente') {
-    if (estado.provisoria) {
-      const nova = $('nova-senha').value;
-      if (nova.length < 8) { recusar('A nova senha precisa ter pelo menos 8 caracteres.', $('nova-senha')); return; }
-      if (nova !== $('confirma-senha').value) { recusar('As duas senhas não são iguais. Digite de novo.', $('confirma-senha')); return; }
-      pedido = ['SELECT portal.trocar_senha($1, $2, $3) AS r', [usuario, estado.provisoria, nova]];
-    } else {
-      const s = $('chave-aluno').value;
-      if (!s) { recusar('Digite a sua senha.', $('chave-aluno')); return; }
-      pedido = ['SELECT portal.entrar($1, $2) AS r', [usuario, s]];
-    }
-  }
+  if (!sessaoGoogle) { faseEntrada('google'); return; }
   $('entrar').disabled = true;
-  aviso.className = 'msg info';
-  aviso.textContent = usuario === 'docente' ? 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.' : 'Conferindo a senha. Pode levar alguns segundos.';
-  aviso.hidden = false;
   try {
-    let temAp2 = false;
-    if (usuario !== 'docente') {
-      let res;
-      if (estado.viaGoogle) {
-        let resp;
-        try {
-          resp = await fetch(`${DATA_API}/rpc/acessar_aluno`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` },
-            body: JSON.stringify({ p_usuario: usuario }),
-          });
-        } catch (e) { throw { rede: true }; }
-        const corpo = await resp.json().catch(() => null);
-        if (!resp.ok) {
-          tokenGoogle = null;
-          const m = (corpo && corpo.message) || `HTTP ${resp.status}`;
-          throw { message: /acesso negado/.test(m) ? 'Esta conta Google não tem acesso de professor.' : (resp.status === 401 ? 'O login do Google não foi aceito. Tente de novo.' : m) };
-        }
-        res = typeof corpo === 'string' ? JSON.parse(corpo) : corpo;
-      } else {
-        const q = await consultar(pedido[0], PORTAL.usuario, PORTAL.senha, pedido[1]);
-        const v = q.rows[0][0];
-        res = typeof v === 'string' ? JSON.parse(v) : v;
-      }
-      const falha = (texto, campo) => { aviso.className = 'msg'; aviso.textContent = texto; campo.focus(); };
-      if (res.erro === 'bloqueado') { modoPrimeiroAcesso(false); falha(`Muitas tentativas erradas. Este nome fica bloqueado por ${res.minutos} minuto${res.minutos > 1 ? 's' : ''}.`, $('chave-aluno')); return; }
-      if (res.erro === 'senha') {
-        modoPrimeiroAcesso(false);
-        falha(`Senha incorreta.${res.restantes !== undefined ? ` Restam ${res.restantes} tentativa${res.restantes === 1 ? '' : 's'} antes do bloqueio.` : ''}`, $('chave-aluno'));
-        return;
-      }
-      if (res.erro === 'tamanho') { falha('A nova senha precisa ter entre 8 e 64 caracteres.', $('nova-senha')); return; }
-      if (res.erro === 'igual') { falha('A nova senha precisa ser diferente da senha provisória.', $('nova-senha')); return; }
-      if (res.provisoria) {
-        estado.provisoria = $('chave-aluno').value;
-        $('chave-aluno').value = '';
-        modoPrimeiroAcesso(true);
-        aviso.className = 'msg info';
-        aviso.textContent = 'Primeiro acesso: crie a sua senha, com pelo menos 8 caracteres. Ela substitui a senha provisória.';
-        $('nova-senha').focus();
-        return;
-      }
-      mestra = Boolean(res.mestra);
-      senha = res.senha_banco;
-      material = res.material;
-      chaveArquivos = res.chave_arquivos;
-      temAp2 = await existeAp2(usuario);
+    if (sessaoGoogle.tipo === 'aluno') { await abrirAluno(sessaoGoogle.res, $('turma').value); return; }
+    const usuario = $('usuario').value;
+    if (!usuario) { avisar('Escolha quem você quer ver.'); return; }
+    const nome = $('usuario').options[$('usuario').selectedIndex].textContent;
+    if (usuario === 'docente') { await conectar({ usuario: 'docente', senha: null, nome: 'Professor', material: null, chave: null, temAp2: false }); return; }
+    const r = await rpc('acessar_aluno', { p_usuario: usuario });
+    if (!r.ok) {
+      const m = (r.dados && r.dados.message) || '';
+      if (r.status === 401 || /expir/.test(m)) { avisar('A sessão do Google terminou. Entre de novo.'); faseEntrada('google'); return; }
+      avisar(/acesso negado/.test(m) ? 'Esta conta Google não tem acesso de professor.' : (m || 'Não foi possível abrir a área do aluno.'));
+      return;
     }
-    const r = await consultar('SELECT current_user', usuario, senha);
-    estado.usuario = usuario === 'docente' ? 'docente' : r.rows[0][0];
-    if (usuario !== 'docente') tokenGoogle = null; // o token só serviu para abrir a área do aluno
-    estado.senha = senha;
-    estado.nome = sel.options[sel.selectedIndex].textContent;
-    $('status').textContent = `${estado.nome} · ${estado.usuario}${mestra ? ' · acesso do professor' : ''}`;
-    $('trocar').textContent = estado.usuario === 'docente' ? 'Trocar de usuário' : 'Trocar de aluno';
-    $('status').classList.add('ligado');
-    $('entrada').hidden = true;
-    $('trabalho').hidden = false;
-    $('historico').hidden = false;
-    if (!$('historico').children.length) $('historico').append(el('p', 'vazio', 'Os comandos executados aparecem aqui, os mais recentes em cima.'));
-    aviso.hidden = true;
-    estado.chave = temAp2 ? chaveArquivos : null;
-    estado.material = material;
-    $('material').hidden = usuario === 'docente';
-    $('chave-aluno').value = '';
-    modoPrimeiroAcesso(false);
-    $('msg-ap2').textContent = '';
-    $('ap2').hidden = !temAp2;
-    atualizarLateral();
-    $('sql').focus();
+    const res = r.dados;
+    const temAp2 = await existeAp2(usuario);
+    await conectar({ usuario, senha: res.senha_banco, nome, material: res.material, chave: temAp2 ? res.chave_arquivos : null, temAp2, mestra: true });
   } catch (e) {
     const t = textoErro(e);
-    aviso.className = 'msg';
-    aviso.textContent = [t.msg, t.dica].filter(Boolean).join(' ');
+    avisar([t.msg, t.dica].filter(Boolean).join(' '));
   } finally {
     $('entrar').disabled = false;
   }
 });
+$('sair-google').addEventListener('click', () => { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); avisar(''); faseEntrada('google'); });
 
 $('trocar').addEventListener('click', () => {
+  const prof = sessaoGoogle && sessaoGoogle.tipo === 'prof';
+  const varias = sessaoGoogle && sessaoGoogle.tipo === 'aluno' && $('turma').options.length > 1;
   estado.usuario = null;
   estado.senha = null;
   estado.nome = '';
-  $('usuario').value = '';
-  $('campo-prof').hidden = true;
-  $('entrar').hidden = false;
-  tokenGoogle = null;
+  estado.chave = null;
+  estado.material = null;
   $('status').textContent = 'Sem conexão';
   $('status').classList.remove('ligado');
   $('trabalho').hidden = true;
   $('historico').hidden = true;
   $('ap2').hidden = true;
   $('material').hidden = true;
-  estado.chave = null;
-  estado.material = null;
-  $('chave-aluno').value = '';
-  $('campo-chave').hidden = false;
-  modoPrimeiroAcesso(false);
-  modoProfessor(false);
   $('msg-ap2').textContent = '';
   $('historico').replaceChildren();
   atualizarLateral();
   $('entrada').hidden = false;
-  $('usuario').focus();
+  if (prof && tokenGoogle) faseEntrada('prof');
+  else if (varias) faseEntrada('turma');
+  else { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); faseEntrada('google'); }
 });
 
 // ---------------------------------------------------------------- execução
