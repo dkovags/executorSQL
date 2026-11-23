@@ -295,10 +295,9 @@ const BANCO = 'escola';
 // e-mail verificado), acha o aluno pelo e-mail cadastrado e devolve a senha do usuário dele no banco, as chaves dos
 // arquivos e as turmas em que está matriculado (professor.matricula). Com uma turma só, o aluno entra direto.
 // O professor (painel_api.verificar_dono) escolhe entrar no schema docente ou na área de um aluno (acessar_aluno).
-// O usuário portal, cuja senha fica aqui, só lê a lista de nomes que o professor usa; não lê nenhum dado.
 // Atualização automática: o GitHub Pages deixa o navegador guardar a página por até 10 minutos. A página confere
 // versao.txt (sem cache) e, se houver versão nova, recarrega por um endereço novo, que o navegador ainda não guardou.
-const VERSAO = '2026-11-22-17';
+const VERSAO = '2026-11-22-18';
 (async () => {
   try {
     const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: 'no-store' });
@@ -311,8 +310,6 @@ const VERSAO = '2026-11-22-17';
     }
   } catch (e) { /* sem rede: segue com a versão guardada */ }
 })();
-const TURMAS = ['POO2026.2'];
-const PORTAL = { usuario: 'portal', senha: 'npg_portal_l67uFjnhwl8LJmQ7xk68Y1sr' };
 // Cadernos de atividades da revisão para a AP2, cifrados (AES-GCM). A chave vem do banco, depois da senha do aluno.
 const MATERIAL = [
   { arquivo: 'Revisao_AP2_Atividade_1.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_1.pdf', iv: 'vSOJNHmsWDAwtEJ6' },
@@ -733,7 +730,7 @@ async function atualizarLateral() {
   }
 }
 
-// Para o professor: a lista vem do banco (portal.alunos()), em ordem alfabética, e começa pelo schema docente
+// Para o professor: os alunos da turma escolhida vêm de painel_api.turma_lista, e a lista começa pelo schema docente
 async function carregarAlunos(turma) {
   const sel = $('usuario');
   const opcao = (texto, valor) => { const o = el('option', '', texto); o.value = valor; return o; };
@@ -741,12 +738,12 @@ async function carregarAlunos(turma) {
   sel.replaceChildren(opcao('Carregando a turma...', ''));
   let lista = null;
   try {
-    const r = await consultar('SELECT usuario, nome FROM portal.alunos()', PORTAL.usuario, PORTAL.senha);
-    lista = r.rows.map(([usuario, nome]) => ({ usuario, nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    const r = await rpc('turma_lista', { p_codigo: turma });
+    lista = r.ok && Array.isArray(r.dados) ? r.dados : null;
   } catch (e) { lista = null; }
-  if (!lista) { sel.replaceChildren(opcao('Turma indisponível', '')); avisar('Não consegui ler a lista da turma. Confira a internet e tente de novo.'); return; }
   const prof = el('optgroup'); prof.label = 'Professor';
   prof.append(opcao('Professor · meu schema, para exemplos em aula', 'docente'));
+  if (!lista) { sel.replaceChildren(prof); sel.value = 'docente'; sel.disabled = false; return; }
   const grupo = el('optgroup'); grupo.label = turma;
   grupo.append(...lista.map((a) => opcao(a.nome, a.usuario)));
   sel.replaceChildren(prof, grupo);
@@ -755,13 +752,14 @@ async function carregarAlunos(turma) {
 }
 function avisar(texto, info = false) { const a = $('msg-entrada'); a.className = info ? 'msg info' : 'msg'; a.textContent = texto; a.hidden = !texto; }
 function preencherTurmas(lista) {
-  $('turma').replaceChildren(...lista.map((t) => { const o = el('option', '', t); o.value = t; return o; }));
+  $('turma').replaceChildren(...lista.map((t) => { const o = el('option', '', t.rotulo || t.codigo); o.value = t.codigo; return o; }));
 }
+let turmasProf = [];
 // fases da tela de entrada: 'google' (só o botão), 'turma' (aluno com mais de uma turma) e 'prof'
 function faseEntrada(fase) {
   $('via-google').hidden = fase !== 'google';
   $('form-entrada').hidden = fase === 'google';
-  $('campo-turma').hidden = !(fase === 'turma' || (fase === 'prof' && TURMAS.length > 1));
+  $('campo-turma').hidden = !(fase === 'turma' || (fase === 'prof' && turmasProf.length > 1));
   $('campo-usuario').hidden = fase !== 'prof';
   if (fase === 'google') { sessaoGoogle = null; tokenGoogle = null; desenharBotaoGoogle(); }
   caberEntrada();
@@ -791,11 +789,11 @@ async function aoEntrarGoogle(credencial) {
     const r = await rpc('entrar_aluno_google');
     const res = r.dados || {};
     if (r.ok && res.ok) {
-      sessaoGoogle = { tipo: 'aluno', res };
-      const turmas = (Array.isArray(res.disciplinas) ? res.disciplinas : []).filter((t) => TURMAS.includes(t));
-      if (!turmas.length) { avisar('A sua conta ainda não tem turma liberada no Executor. Fale com o professor.'); faseEntrada('google'); return; }
-      if (turmas.length === 1) { await abrirAluno(res, turmas[0]); return; }
-      preencherTurmas(turmas);
+      const turmas = Array.isArray(res.turmas) ? res.turmas : [];
+      sessaoGoogle = { tipo: 'aluno', res, turmas };
+      if (!turmas.length) { avisar('A sua conta ainda não tem turma. Fale com o professor.'); faseEntrada('google'); return; }
+      if (turmas.length === 1) { await abrirAluno(res, turmas[0].codigo); return; }
+      preencherTurmas(turmas.map((t) => ({ codigo: t.codigo, rotulo: `${t.codigo} · ${t.nome_turma}` })));
       destrancar();
       faseEntrada('turma');
       avisar('Escolha a turma em que você quer entrar.', true);
@@ -804,15 +802,17 @@ async function aoEntrarGoogle(credencial) {
     if (r.ok && res.erro === 'sem_cadastro') {
       const d = await rpc('verificar_dono');
       if (d.ok && d.dados && d.dados.ok) {
+        const t = await rpc('turmas_professor');
+        turmasProf = t.ok && Array.isArray(t.dados) ? t.dados : [];
         sessaoGoogle = { tipo: 'prof' };
-        preencherTurmas(TURMAS);
+        preencherTurmas(turmasProf.map((x) => ({ codigo: x.codigo, rotulo: `${x.codigo} · ${x.nome}` })));
         destrancar();
         faseEntrada('prof');
-        avisar('Acesso do professor: escolha o schema docente ou a área de um aluno.', true);
-        carregarAlunos(TURMAS[0]);
+        avisar('Acesso do professor: o seu schema já vem escolhido. Clique em Entrar, ou escolha a área de um aluno.', true);
+        carregarAlunos(turmasProf.length ? turmasProf[0].codigo : '');
         return;
       }
-      avisar(`A conta ${res.email} não está cadastrada. Entre com a conta Gmail que você informou ao professor, ou peça a ele para cadastrar este e-mail.`);
+      avisar(`A conta ${res.email} ainda não está vinculada a uma turma. Abra a Área do aluno (kovags.com/academico/aluno) para cadastrar o seu Gmail, ou fale com o professor.`);
       faseEntrada('google');
       return;
     }
@@ -833,6 +833,7 @@ function desenharBotaoGoogle() {
   }
   google.accounts.id.renderButton($('g-entrar'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR', width: 300 });
 }
+$('turma').addEventListener('change', () => { if (sessaoGoogle && sessaoGoogle.tipo === 'prof') carregarAlunos($('turma').value); });
 faseEntrada('google');
 
 // ---------------------------------------------------------------- cadernos da revisão, abertos com a chave que vem do cofre do aluno
@@ -912,8 +913,10 @@ document.querySelectorAll('.baixar-ap2').forEach((b) => b.addEventListener('clic
 
 // ---------------------------------------------------------------- entrada
 async function abrirAluno(res, turma) {
-  const temAp2 = await existeAp2(res.usuario);
-  await conectar({ usuario: res.usuario, senha: res.senha_banco, nome: res.nome || res.usuario, material: res.material, chave: temAp2 ? res.chave_arquivos : null, temAp2, mestra: false, turma });
+  const t = (res.turmas || []).find((x) => x.codigo === turma) || { usuario: res.usuario, senha_banco: res.senha_banco, chave_arquivos: res.chave_arquivos };
+  const poo = turma === 'POO2026.2';
+  const temAp2 = poo && await existeAp2(t.usuario);
+  await conectar({ usuario: t.usuario, senha: t.senha_banco, nome: res.nome || t.usuario, material: poo ? res.material : null, chave: temAp2 ? t.chave_arquivos : null, temAp2, mestra: false, turma });
 }
 // liga a tela de trabalho com o usuário do banco já conferido
 async function conectar(c) {

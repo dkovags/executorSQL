@@ -193,7 +193,6 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
   <div class="topo-in">
     <div>
       <h1>Painel do Professor</h1>
-      <p class="sub">Tabelas e comandos de cada aluno, direto do banco da turma.</p>
     </div>
     <div class="barra">
       <span id="quem" class="chip">Sem identificação</span>
@@ -254,7 +253,8 @@ button.btn.perigo.confirmar { background: var(--err); color: var(--card); }
   <section id="admin" class="painel admin" aria-labelledby="titulo-admin" hidden>
     <div class="painel-cab"><h2 id="titulo-admin">Administração do Banco de Dados</h2></div>
     <div class="admin-corpo">
-      <div class="acao" id="acao-turma">
+      <div class="acao"><div><h3>Turma</h3><p class="meta">A lista de cada turma agora é importada na Área do professor do portal (kovags.com/academico/professor, opção Turmas). Cada aluno da lista ganha usuário e schema automaticamente e entra com a conta do Gmail, sem senha.</p></div></div>
+      <div class="acao" id="acao-turma" hidden>
         <div>
           <h3>Turma</h3>
           <p class="meta">Um nome por vaga, quantas vagas forem preciso. Ao salvar, cada vaga com nome ganha usuário e schema próprios, se ainda não tiver, entra na lista do Executor de SQL e recebe a tabela <code>aluno</code> vazia; apagar o nome tira o acesso, mas o schema e as tabelas daquela vaga ficam. Cada vaga é um schema: trocar o nome de vaga leva o novo aluno para as tabelas que já estão nela.</p>
@@ -347,6 +347,14 @@ function aoEntrar(resposta) {
 }
 
 try { const t = sessionStorage.getItem('painel_token'); if (tokenVale(t)) tokenGoogle = t; } catch (e) { /* sem armazenamento */ }
+// Embutido na Área do professor (kovags.com), o portal já tem o login do Google e o repassa para cá,
+// para o professor não precisar entrar duas vezes. Só aceita a mensagem vinda do portal.
+window.addEventListener('message', (ev) => {
+  if (ev.origin !== 'https://kovags.com' || !ev.data || ev.data.tipo !== 'token-google') return;
+  if (!tokenVale(ev.data.token) || ev.data.token === tokenGoogle) return;
+  aoEntrar({ credential: ev.data.token });
+});
+try { if (window.parent !== window) window.parent.postMessage({ tipo: 'painel-pronto' }, 'https://kovags.com'); } catch (e) { /* fora do portal */ }
 
 window.onGoogleLibraryLoad = () => {
   google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: aoEntrar, auto_select: true, cancel_on_tap_outside: false });
