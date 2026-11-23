@@ -376,7 +376,7 @@ function mostrarLogin(msg) {
 }
 
 // Registro de acessos do portal (kovags.com/registro.php): o servidor grava o IP; com o token do Google, confere o e-mail
-function registrar(funcionalidade, extra) {
+function registrarAcesso(funcionalidade, extra) {
   try {
     const d = Object.assign({ pagina: location.href.replace(/\?.*$/, ''), funcionalidade }, extra || {});
     const corpo = JSON.stringify(d);
@@ -385,7 +385,7 @@ function registrar(funcionalidade, extra) {
 }
 function aoEntrar(resposta) {
   tokenGoogle = resposta.credential;
-  registrar('entrou no Painel de Execução de SQL', { token: tokenGoogle });
+  registrarAcesso('entrou no Painel de Execução de SQL', { token: tokenGoogle });
   try { sessionStorage.setItem('painel_token', tokenGoogle); } catch (e) { /* aba privada */ }
   document.getElementById('login').hidden = true;
   liberar();

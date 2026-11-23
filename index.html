@@ -297,7 +297,7 @@ const BANCO = 'escola';
 // O professor (painel_api.verificar_dono) escolhe entrar no schema docente ou na área de um aluno (acessar_aluno).
 // Atualização automática: o GitHub Pages deixa o navegador guardar a página por até 10 minutos. A página confere
 // versao.txt (sem cache) e, se houver versão nova, recarrega por um endereço novo, que o navegador ainda não guardou.
-const VERSAO = '2026-11-23-01';
+const VERSAO = '2026-11-23-02';
 (async () => {
   try {
     const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: 'no-store' });
@@ -334,14 +334,14 @@ const estado = { usuario: null, senha: null, nome: '', ocupado: false, chave: nu
 let sessaoGoogle = null; // { tipo: 'aluno', res } ou { tipo: 'prof' }
 const $ = (id) => document.getElementById(id);
 // Registro de acessos do portal (kovags.com/registro.php): o servidor grava o IP; com o token do Google, confere o e-mail
-function registrar(funcionalidade, extra) {
+function registrarAcesso(funcionalidade, extra) {
   try {
     const d = Object.assign({ pagina: location.href.replace(/\?.*$/, ''), funcionalidade }, extra || {});
     const corpo = JSON.stringify(d);
     if (!(navigator.sendBeacon && navigator.sendBeacon('https://kovags.com/registro.php', new Blob([corpo], { type: 'text/plain' })))) fetch('https://kovags.com/registro.php', { method: 'POST', body: corpo, keepalive: true, mode: 'no-cors' }).catch(() => {});
   } catch (e) { /* o registro nunca atrapalha a página */ }
 }
-registrar('abriu o Executor de SQL');
+registrarAcesso('abriu o Executor de SQL');
 
 // divide o texto em comandos pelo ";", sem cortar dentro de aspas nem de comentários
 function separar(texto) {
@@ -931,7 +931,7 @@ async function abrirAluno(res, turma) {
 async function conectar(c) {
   avisar(c.usuario === 'docente' ? 'Conectando ao banco. Na primeira vez do dia, pode levar alguns segundos.' : 'Abrindo o seu ambiente. Pode levar alguns segundos.', true);
   const r = await consultar('SELECT current_user', c.usuario, c.senha);
-  registrar(c.usuario === 'docente' ? 'entrou no Executor no schema do professor' : `entrou no Executor como ${c.nome} (${c.usuario})${c.mestra ? ', acesso do professor' : ''}`, { token: tokenGoogle || undefined });
+  registrarAcesso(c.usuario === 'docente' ? 'entrou no Executor no schema do professor' : `entrou no Executor como ${c.nome} (${c.usuario})${c.mestra ? ', acesso do professor' : ''}`, { token: tokenGoogle || undefined });
   estado.usuario = c.usuario === 'docente' ? 'docente' : r.rows[0][0];
   estado.senha = c.senha;
   estado.nome = c.nome;
