@@ -7,7 +7,7 @@ Páginas de apoio ao laboratório de banco de dados.
   autorizada: no próprio schema (docente), para exemplos em aula, ou na área de qualquer aluno.
   Depois da entrada, a página oferece os cadernos de atividades da revisão e os arquivos da AP2 do aluno, em PDF.
 - [`professor/`](professor): Painel de Execução de SQL, com entrada pela conta Google autorizada. Também abre dentro da
-  Área do professor do portal (kovags.com/academico/professor), onde ficam as turmas: a lista importada cria os
+  Área do professor do portal (academico.kovags.com/professor), onde ficam as turmas: a lista importada cria os
   schemas dos alunos e controla o cadastro do Gmail.
 - `Revisao_AP2_Atividade_1.pdf.enc` a `_3`: cadernos de atividades cifrados (AES-GCM); a chave vem do banco depois
   da senha do aluno.

@@ -400,12 +400,14 @@ function aoEntrar(resposta) {
 try { const t = sessionStorage.getItem('painel_token'); if (tokenVale(t)) tokenGoogle = t; } catch (e) { /* sem armazenamento */ }
 // Embutido na Área do professor (kovags.com), o portal já tem o login do Google e o repassa para cá,
 // para o professor não precisar entrar duas vezes. Só aceita a mensagem vinda do portal.
+const PORTAIS = ['https://kovags.com', 'https://academico.kovags.com'];   // páginas que podem embutir esta e repassar o login
 window.addEventListener('message', (ev) => {
-  if (ev.origin !== 'https://kovags.com' || !ev.data || ev.data.tipo !== 'token-google') return;
+  if (!PORTAIS.includes(ev.origin) || !ev.data || ev.data.tipo !== 'token-google') return;
   if (!tokenVale(ev.data.token) || ev.data.token === tokenGoogle) return;
   aoEntrar({ credential: ev.data.token });
 });
-try { if (window.parent !== window) window.parent.postMessage({ tipo: 'painel-pronto' }, 'https://kovags.com'); } catch (e) { /* fora do portal */ }
+// o portal pode estar em kovags.com ou em academico.kovags.com; a mensagem só chega ao endereço certo
+PORTAIS.forEach((o) => { try { if (window.parent !== window) window.parent.postMessage({ tipo: 'painel-pronto' }, o); } catch (e) { /* fora do portal */ } });
 
 window.onGoogleLibraryLoad = () => {
   google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: aoEntrar, auto_select: true, cancel_on_tap_outside: false });

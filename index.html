@@ -297,7 +297,7 @@ const BANCO = 'escola';
 // O professor (painel_api.verificar_dono) escolhe entrar no schema docente ou na área de um aluno (acessar_aluno).
 // Atualização automática: o GitHub Pages deixa o navegador guardar a página por até 10 minutos. A página confere
 // versao.txt (sem cache) e, se houver versão nova, recarrega por um endereço novo, que o navegador ainda não guardou.
-const VERSAO = '2026-11-23-05';
+const VERSAO = '2026-11-25-01';
 (async () => {
   try {
     const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: 'no-store' });
@@ -834,7 +834,7 @@ async function aoEntrarGoogle(credencial) {
         carregarAlunos(tp);
         return;
       }
-      avisar(`A conta ${res.email} ainda não está vinculada a uma turma. Abra a Área do aluno (kovags.com/academico/aluno) para cadastrar o seu Gmail, ou fale com o professor.`);
+      avisar(`A conta ${res.email} ainda não está vinculada a uma turma. Abra a Área do aluno (academico.kovags.com/aluno) para cadastrar o seu Gmail, ou fale com o professor.`);
       faseEntrada('google');
       return;
     }
@@ -858,13 +858,15 @@ function desenharBotaoGoogle() {
 // Embutido na Área do aluno (kovags.com), o portal repassa o login do Google e a disciplina aberta,
 // para o aluno não entrar duas vezes. Só aceita a mensagem vinda do portal.
 let turmaPreferida = '';
+const PORTAIS = ['https://kovags.com', 'https://academico.kovags.com'];   // páginas que podem embutir esta e repassar o login
 window.addEventListener('message', (ev) => {
-  if (ev.origin !== 'https://kovags.com' || !ev.data || ev.data.tipo !== 'token-google' || typeof ev.data.token !== 'string') return;
+  if (!PORTAIS.includes(ev.origin) || !ev.data || ev.data.tipo !== 'token-google' || typeof ev.data.token !== 'string') return;
   if (ev.data.token === tokenGoogle) return;
   turmaPreferida = typeof ev.data.turma === 'string' ? ev.data.turma : '';
   aoEntrarGoogle(ev.data.token);
 });
-try { if (window.parent !== window) window.parent.postMessage({ tipo: 'executor-pronto' }, 'https://kovags.com'); } catch (e) { /* fora do portal */ }
+// o portal pode estar em kovags.com ou em academico.kovags.com; a mensagem só chega ao endereço certo
+PORTAIS.forEach((o) => { try { if (window.parent !== window) window.parent.postMessage({ tipo: 'executor-pronto' }, o); } catch (e) { /* fora do portal */ } });
 $('turma').addEventListener('change', () => { if (sessaoGoogle && sessaoGoogle.tipo === 'prof') carregarAlunos($('turma').value); });
 faseEntrada('google');
 
