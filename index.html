@@ -739,7 +739,7 @@ async function atualizarLateral() {
   }
 }
 
-// Para o professor: os alunos da turma escolhida vêm de painel_api.turma_lista, e a lista começa pelo schema docente
+// Para o professor: os alunos da turma escolhida vêm da API do portal (turma_lista), e a lista começa pelo schema docente
 async function carregarAlunos(turma) {
   const sel = $('usuario');
   const opcao = (texto, valor) => { const o = el('option', '', texto); o.value = valor; return o; };
@@ -786,17 +786,32 @@ function destrancar() {
   $('exemplos').hidden = false;
   caberEntrada();
 }
+// Leituras pela API do portal (PHP em kovags.com), que confere o token do Google e fala com o banco.
+// Devolve { ok, status, dados } como antes; listas vêm desembrulhadas e o erro da API vira dados.message.
+const API_PORTAL = 'https://kovags.com/api';
 async function rpc(nome, corpo) {
+  const c = corpo || {};
+  const pedido = {
+    entrar_aluno_google: ['GET', 'aluno/entrar.php'],
+    acessar_aluno: ['GET', `professor/aluno.php?usuario=${encodeURIComponent(c.p_usuario || '')}`],
+    verificar_dono: ['POST', 'professor/ler.php', { recurso: 'verificar_dono' }],
+    turmas_professor: ['POST', 'professor/ler.php', { recurso: 'turmas_professor' }],
+    turma_lista: ['POST', 'professor/ler.php', { recurso: 'turma_lista', codigo: c.p_codigo }],
+  }[nome];
+  if (!pedido) throw { message: `Leitura desconhecida: ${nome}.` };
+  const [metodo, caminho, envio] = pedido;
   let resp;
   try {
-    resp = await fetch(`${DATA_API}/rpc/${nome}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` },
-      body: JSON.stringify(corpo || {}),
+    resp = await fetch(`${API_PORTAL}/${caminho}`, {
+      method: metodo,
+      headers: Object.assign({ Authorization: `Bearer ${tokenGoogle}` }, envio ? { 'Content-Type': 'application/json' } : {}),
+      body: envio ? JSON.stringify(envio) : undefined,
     });
   } catch (e) { throw { rede: true }; }
-  const dados = await resp.json().catch(() => null);
-  return { ok: resp.ok, status: resp.status, dados: typeof dados === 'string' ? JSON.parse(dados) : dados };
+  let dados = await resp.json().catch(() => null);
+  if (dados && !resp.ok) dados = Object.assign({}, dados, { message: dados.mensagem || dados.message || (resp.status === 403 ? 'acesso negado' : '') });
+  else if (dados && Array.isArray(dados.lista)) dados = dados.lista;
+  return { ok: resp.ok, status: resp.status, dados };
 }
 async function aoEntrarGoogle(credencial) {
   tokenGoogle = credencial;
