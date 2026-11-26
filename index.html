@@ -92,7 +92,6 @@ button.secundario:hover { background: var(--painel); }
 .cab-editor { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 textarea { display: block; width: 100%; min-height: 150px; padding: 10px 12px; border: 1px solid #B8C2D3; border-radius: 4px; background: #FBFCFE; color: var(--tinta); font-family: var(--mono); font-size: 16px; line-height: 1.5; resize: vertical; }
 .acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 10px; }
-.dica { color: var(--cinza); font-size: 14.5px; max-width: 62ch; }
 
 #historico { display: grid; gap: 14px; }
 .vazio { margin: 0; color: var(--cinza); font-size: 15px; }
@@ -143,8 +142,6 @@ td.nulo { color: #8B95A5; font-style: italic; }
   .atalhos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
   .atalhos button { height: 44px; }
   .acoes button { height: 44px; flex: 1 1 0; }
-  .acoes .dica { flex: 1 1 100%; }
-  .so-teclado { display: none; }
   #sql { min-height: 140px; }
   #lateral, #exemplos { display: none; }
   #lateral.aberta, #exemplos.aberta {
@@ -251,7 +248,6 @@ td.nulo { color: #8B95A5; font-style: italic; }
     <div class="acoes">
       <button id="executar" type="button">Executar</button>
       <button id="limpar" class="secundario" type="button">Limpar</button>
-      <span class="dica"><span class="so-teclado">Ctrl+Enter também executa. </span>Cada comando termina em <code>;</code> se tiver mais de uma instrução. O que der certo sai do editor e vai para o histórico; o que der erro fica no editor para corrigir.</span>
     </div>
   </section>
 
