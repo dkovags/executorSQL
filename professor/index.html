@@ -607,7 +607,6 @@ function desenharGrade() {
   const l2 = el('div', 'linha'); l2.append(el('span', '', 'com erro'), el('b', total.e ? 'erro' : '', String(total.e)));
   todas.append(l1, l2);
   todas.addEventListener('click', () => escolher('todas'));
-  cartoes.push(todas);
   resumo.forEach((d) => {
     const b = el('button', 'card-dupla');
     b.type = 'button';
@@ -626,6 +625,7 @@ function desenharGrade() {
     b.addEventListener('click', () => escolher(d.ambiente));
     cartoes.push(b);
   });
+  cartoes.push(todas);   // o cartão do conjunto vem depois de todos os alunos (ou duplas)
   g.replaceChildren(...cartoes);
   g.hidden = false;
 }
