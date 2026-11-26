@@ -316,11 +316,10 @@ const MATERIAL = [
   { arquivo: 'Revisao_AP2_Atividade_2.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_2.pdf', iv: 'Hf7uBPZXKs81fj5D' },
   { arquivo: 'Revisao_AP2_Atividade_3.pdf.enc', nome: 'POO_Revisao_AP2_Caderno_Atividade_3.pdf', iv: 'SmqkXHxGOYwT0EgK' },
 ];
-// O professor entra com a conta Google (Google Identity Services). Os comandos dele vão para a Data API do Neon,
-// que confere a assinatura do token do Google; a função painel_api.executar_docente só aceita o e-mail do
-// professor e executa o comando no schema docente.
+// O professor entra com a conta Google (Google Identity Services). Os comandos dele vão para a API do portal (PHP),
+// que confere o token do Google, só aceita o e-mail do professor e executa o comando no schema docente.
 const GOOGLE_CLIENT_ID = '377714746724-57pabm6cvgvtijcsn7vm6u03ppjisbm5.apps.googleusercontent.com';
-const DATA_API = 'https://ep-shy-violet-b6f4h26u.apirest.c-2.sa-east-1.aws.neon.tech/escola/rest/v1';
+const API_PORTAL = 'https://kovags.com/api';
 let tokenGoogle = null;
 const desB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function abrir(cofre, frase) {
@@ -391,18 +390,18 @@ function separar(texto) {
 async function consultarProfessor(query) {
   let resposta;
   try {
-    resposta = await fetch(`${DATA_API}/rpc/executar_docente`, {
+    resposta = await fetch(`${API_PORTAL}/professor/sql.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` },
       // no banco, a função roda com o dono do banco; current_user passa a valer docente, o schema do professor
-      body: JSON.stringify({ p_sql: query.replace(/\bcurrent_user\b/gi, "'docente'::name") }),
+      body: JSON.stringify({ acao: 'executar_docente', sql: query.replace(/\bcurrent_user\b/gi, "'docente'::name") }),
     });
   } catch (e) { throw { rede: true }; }
   const corpo = await resposta.json().catch(() => null);
   if (resposta.status === 401) throw { message: 'A sessão do Google terminou ou não foi aceita. Escolha Trocar de usuário e entre de novo.' };
-  if (!resposta.ok) {
-    const m = (corpo && corpo.message) || `O banco respondeu com o código HTTP ${resposta.status}.`;
-    throw { message: /acesso negado/.test(m) ? 'Esta conta Google não tem acesso de professor.' : m, detail: corpo && corpo.details };
+  if (resposta.status === 403) throw { message: 'Esta conta Google não tem acesso de professor.' };
+  if (!resposta.ok || !corpo || corpo.ok === false) {
+    throw { message: (corpo && (corpo.message || corpo.mensagem)) || `O servidor respondeu com o código HTTP ${resposta.status}.`, detail: corpo && corpo.detail };
   }
   if (corpo.command !== 'SELECT') return { command: corpo.command, rowCount: corpo.rowCount, fields: [], rows: [] };
   const linhas = corpo.linhas || [];
@@ -788,7 +787,6 @@ function destrancar() {
 }
 // Leituras pela API do portal (PHP em kovags.com), que confere o token do Google e fala com o banco.
 // Devolve { ok, status, dados } como antes; listas vêm desembrulhadas e o erro da API vira dados.message.
-const API_PORTAL = 'https://kovags.com/api';
 async function rpc(nome, corpo) {
   const c = corpo || {};
   const pedido = {

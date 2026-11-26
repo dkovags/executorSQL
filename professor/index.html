@@ -357,11 +357,10 @@ body.travado { overflow: hidden; }
 <div id="fundo"></div>
 
 <script>
-// Login pelo Google (Google Identity Services) e acesso aos dados pela Data API do Neon.
-// O token do Google vai no cabeçalho Authorization; o Neon confere a assinatura com as chaves públicas do
-// Google e o Client ID abaixo, e a função painel_api.painel só responde ao e-mail do professor.
+// Login pelo Google (Google Identity Services) e acesso aos dados pela API do portal (PHP em kovags.com).
+// O token do Google vai no cabeçalho Authorization; o PHP confere a assinatura com as chaves públicas do
+// Google e o Client ID abaixo, e só responde ao e-mail do professor.
 const GOOGLE_CLIENT_ID = '377714746724-57pabm6cvgvtijcsn7vm6u03ppjisbm5.apps.googleusercontent.com';
-const DATA_API = 'https://ep-shy-violet-b6f4h26u.apirest.c-2.sa-east-1.aws.neon.tech/escola/rest/v1';
 let tokenGoogle = null;
 let liberar;
 let loginPronto = new Promise((r) => { liberar = r; });
@@ -443,24 +442,24 @@ window.claude = {
           try {
             const acao = ['painel', 'definir_turma', 'remover_vaga', 'redefinir_senha', 'executar_script', 'definir_duplas', 'recriar_aluno', 'apagar_tabelas', 'apagar_registros'].includes(entrada.acao) ? entrada.acao : 'painel';
             const corpoPedido = entrada.args || {};
-            r = await fetch(`${DATA_API}/rpc/${acao}`, {
+            r = await fetch('https://kovags.com/api/professor/sql.php', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenGoogle}` },
-              body: JSON.stringify(corpoPedido),
+              body: JSON.stringify({ acao, args: corpoPedido }),
             });
           } catch (e) {
-            throw { code: 'upstream_error', message: 'sem conexão com o Neon' };
+            throw { code: 'upstream_error', message: 'sem conexão com o servidor do portal' };
           }
           const corpo = await r.json().catch(() => null);
+          const msg = (corpo && (corpo.message || corpo.mensagem)) || `HTTP ${r.status}`;
           if (r.status === 401) {
-            mostrarLogin(`O Neon recusou o login: ${(corpo && corpo.message) || 'HTTP 401'}`);
-            throw { code: 'needs_reauth', message: (corpo && corpo.message) || 'HTTP 401' };
+            mostrarLogin(`O login não foi aceito: ${msg}`);
+            throw { code: 'needs_reauth', message: msg };
           }
-          if (!r.ok) {
-            const negado = r.status === 403 || (corpo && (corpo.code === '42501' || /acesso negado/.test(corpo.message || '')));
-            throw { code: negado ? 'not_granted' : 'tool_error', message: (corpo && corpo.message) || `HTTP ${r.status}` };
+          if (!r.ok || !corpo || corpo.ok === false) {
+            throw { code: r.status === 403 ? 'not_granted' : 'tool_error', message: msg };
           }
-          return { payload: [entrada.acao && entrada.acao !== 'painel' ? { r: corpo } : { dados: corpo }] };
+          return { payload: [entrada.acao && entrada.acao !== 'painel' ? { r: corpo.r } : { dados: corpo.r }] };
         },
       };
     }
